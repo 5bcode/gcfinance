@@ -1,0 +1,100 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - paragraph [ref=e5]: Combined Finance Planner
+      - heading "Home, Holiday, and Safety Goals" [level=1] [ref=e6]
+    - generic [ref=e7]: As of 2026-02-16
+  - region "Assumptions" [ref=e8]:
+    - heading "Assumptions (edit in code)" [level=2] [ref=e9]
+    - list [ref=e10]:
+      - listitem [ref=e11]: "One shared monthly budget and three priority goals: house, holiday, emergency fund."
+      - listitem [ref=e12]: "Simple shell: placeholders are used where exact metrics/accounts were not specified."
+      - listitem [ref=e13]: All values are shown in USD; data currently comes from a local mock adapter.
+  - main [ref=e14]:
+    - region "Headline KPIs" [ref=e15]:
+      - generic [ref=e16]:
+        - heading "Headline KPIs" [level=2] [ref=e17]
+        - paragraph [ref=e18]: Fast health check for your combined finances
+      - generic [ref=e19]:
+        - article [ref=e20]:
+          - paragraph [ref=e21]: Net Worth
+          - paragraph [ref=e22]: $84,250
+          - paragraph [ref=e23]: +2.8% vs last month
+        - article [ref=e24]:
+          - paragraph [ref=e25]: Monthly Savings
+          - paragraph [ref=e26]: $3,150
+          - paragraph [ref=e27]: +4.2% vs last month
+        - article [ref=e28]:
+          - paragraph [ref=e29]: Emergency Fund Coverage
+          - paragraph [ref=e30]: 4.6 months
+          - paragraph [ref=e31]: +0.2% vs last month
+        - article [ref=e32]:
+          - paragraph [ref=e33]: Goals Funded
+          - paragraph [ref=e34]: 39%
+          - paragraph [ref=e35]: +1.4% vs last month
+    - region "Trends" [ref=e36]:
+      - generic [ref=e37]:
+        - heading "Trends" [level=2] [ref=e38]
+        - paragraph [ref=e39]: Month-by-month direction for total balance and goal funding
+      - generic [ref=e40]:
+        - article [ref=e41]:
+          - heading "Total Household Balance" [level=3] [ref=e42]
+          - img "Household balance trend chart" [ref=e43]:
+            - img [ref=e44]:
+              - generic [ref=e47]: Sep
+              - generic [ref=e48]: Oct
+              - generic [ref=e49]: Nov
+              - generic [ref=e50]: Dec
+              - generic [ref=e51]: Jan
+              - generic [ref=e52]: Feb
+        - article [ref=e53]:
+          - heading "Goal Progress Trend" [level=3] [ref=e54]
+          - img "Goal progress trend chart" [ref=e55]:
+            - img [ref=e56]:
+              - generic [ref=e59]: Sep
+              - generic [ref=e60]: Oct
+              - generic [ref=e61]: Nov
+              - generic [ref=e62]: Dec
+              - generic [ref=e63]: Jan
+              - generic [ref=e64]: Feb
+    - region "Goal Breakdown" [ref=e65]:
+      - generic [ref=e66]:
+        - heading "Goal Breakdown" [level=2] [ref=e67]
+        - paragraph [ref=e68]: Contribution, funding gap, and ETA by goal
+      - table [ref=e70]:
+        - rowgroup [ref=e71]:
+          - row "Goal Target Current Progress Monthly Contribution ETA" [ref=e72]:
+            - columnheader "Goal" [ref=e73]
+            - columnheader "Target" [ref=e74]
+            - columnheader "Current" [ref=e75]
+            - columnheader "Progress" [ref=e76]
+            - columnheader "Monthly Contribution" [ref=e77]
+            - columnheader "ETA" [ref=e78]
+        - rowgroup [ref=e79]:
+          - row "House Deposit $80,000 $24,800 House Deposit progress 31% $1,300 Apr 2029" [ref=e80]:
+            - cell "House Deposit" [ref=e81]
+            - cell "$80,000" [ref=e82]
+            - cell "$24,800" [ref=e83]
+            - cell "House Deposit progress 31%" [ref=e84]:
+              - generic "House Deposit progress" [ref=e85]
+              - text: 31%
+            - cell "$1,300" [ref=e87]
+            - cell "Apr 2029" [ref=e88]
+          - row "Holiday (Japan) $9,000 $3,800 Holiday (Japan) progress 42% $450 Jun 2027" [ref=e89]:
+            - cell "Holiday (Japan)" [ref=e90]
+            - cell "$9,000" [ref=e91]
+            - cell "$3,800" [ref=e92]
+            - cell "Holiday (Japan) progress 42%" [ref=e93]:
+              - generic "Holiday (Japan) progress" [ref=e94]
+              - text: 42%
+            - cell "$450" [ref=e96]
+            - cell "Jun 2027" [ref=e97]
+          - row "Emergency Fund $18,000 $9,700 Emergency Fund progress 54% $700 Oct 2026" [ref=e98]:
+            - cell "Emergency Fund" [ref=e99]
+            - cell "$18,000" [ref=e100]
+            - cell "$9,700" [ref=e101]
+            - cell "Emergency Fund progress 54%" [ref=e102]:
+              - generic "Emergency Fund progress" [ref=e103]
+              - text: 54%
+            - cell "$700" [ref=e105]
+            - cell "Oct 2026" [ref=e106]
