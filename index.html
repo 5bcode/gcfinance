@@ -3,54 +3,82 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0f172a" />
+  <meta name="theme-color" content="#080d1a" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Sora:wght@600;700&display=swap" rel="stylesheet" />
   <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
   <title>Couple Finance Dashboard</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
+  <div class="ambient-layer" aria-hidden="true"></div>
+
   <div class="app-shell">
-    <header class="topbar">
-      <div>
-        <p class="eyebrow">Combined Finance Planner</p>
-        <h1>Home, Holiday, and Safety Goals</h1>
+    <aside class="sidebar panel" aria-label="Primary navigation">
+      <div class="brand-wrap">
+        <p class="brand">GC.</p>
+        <p class="brand-sub">Couple Finance</p>
       </div>
-      <div class="as-of" id="asOfDate">As of --</div>
-    </header>
 
-    <section class="assumptions" aria-label="Assumptions">
-      <h2>Assumptions (edit in code)</h2>
-      <ul>
-        <li>One shared monthly budget and three priority goals: house, holiday, emergency fund.</li>
-        <li>Simple shell: placeholders are used where exact metrics/accounts were not specified.</li>
-        <li>All values are shown in USD; data currently comes from a local mock adapter.</li>
-      </ul>
-    </section>
+      <nav class="nav" aria-label="Sections">
+        <button type="button" class="nav-item is-active">Overview</button>
+        <button type="button" class="nav-item">Budget</button>
+        <button type="button" class="nav-item">Goals</button>
+        <button type="button" class="nav-item">History</button>
+      </nav>
 
-    <section class="controls panel" aria-label="Planner Controls">
-      <div class="control-group">
-        <label for="scenarioSelect">Savings scenario</label>
-        <select id="scenarioSelect">
-          <option value="conservative">Conservative</option>
-          <option value="base" selected>Base</option>
-          <option value="aggressive">Aggressive</option>
-        </select>
-      </div>
-      <div class="control-group">
-        <label for="projectionMonths">Projection window</label>
-        <select id="projectionMonths">
-          <option value="6" selected>6 months</option>
-          <option value="12">12 months</option>
-        </select>
-      </div>
-      <div class="control-group">
-        <label for="monthlyEssentials">Monthly essentials</label>
-        <input id="monthlyEssentials" type="number" min="500" step="50" value="2100" />
-      </div>
-      <button id="resetBtn" class="btn-reset" type="button">Reset to defaults</button>
-    </section>
+      <section class="assumptions" aria-label="Assumptions">
+        <h2>Planning notes</h2>
+        <ul>
+          <li>Three shared goals: house, holiday, emergency fund.</li>
+          <li>Local mock data adapter is active for now.</li>
+          <li>All values are shown in USD.</li>
+        </ul>
+      </section>
 
-    <main>
+      <button type="button" class="logout-btn">Log out</button>
+    </aside>
+
+    <main class="dashboard">
+      <header class="topbar panel">
+        <div>
+          <p class="eyebrow">Combined Finance Planner</p>
+          <h1>Home, Holiday, and Safety Goals</h1>
+          <p class="subtitle">Track your trajectory with scenario controls and live projections.</p>
+        </div>
+        <div class="topbar-meta">
+          <div class="meta-chip" aria-hidden="true">
+            <p>Signal</p>
+            <strong>Stable +4.2%</strong>
+          </div>
+          <div class="as-of" id="asOfDate">As of --</div>
+        </div>
+      </header>
+
+      <section class="controls panel" aria-label="Planner Controls">
+        <div class="control-group">
+          <label for="scenarioSelect">Savings scenario</label>
+          <select id="scenarioSelect">
+            <option value="conservative">Conservative</option>
+            <option value="base" selected>Base</option>
+            <option value="aggressive">Aggressive</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label for="projectionMonths">Projection window</label>
+          <select id="projectionMonths">
+            <option value="6" selected>6 months</option>
+            <option value="12">12 months</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label for="monthlyEssentials">Monthly essentials</label>
+          <input id="monthlyEssentials" type="number" min="500" step="50" value="2100" />
+        </div>
+        <button id="resetBtn" class="btn-reset" type="button">Reset defaults</button>
+      </section>
+
       <section aria-labelledby="kpiTitle">
         <div class="section-head">
           <h2 id="kpiTitle">Headline KPIs</h2>
@@ -81,7 +109,7 @@
           <h2 id="breakdownTitle">Goal Breakdown</h2>
           <p>Contribution, funding gap, and ETA by goal</p>
         </div>
-        <div class="table-shell">
+        <div class="table-shell panel">
           <table>
             <thead>
               <tr>
@@ -98,6 +126,39 @@
         </div>
       </section>
     </main>
+
+    <aside class="insights" aria-label="Insights panel">
+      <section class="card-preview panel">
+        <div class="card-stack" aria-hidden="true">
+          <div class="stack-card stack-card-back"></div>
+          <div class="stack-card stack-card-mid"></div>
+        </div>
+        <div class="card-head">
+          <p class="card-label">Projected balance</p>
+          <span class="card-pill">Connected</span>
+        </div>
+        <p class="card-value" id="snapshotNetWorth">$0</p>
+        <p class="card-sub">Next month contribution pace</p>
+        <p class="card-detail" id="snapshotSavings">$0 / month</p>
+        <div class="card-meta" aria-hidden="true">
+          <span>Household Visa</span>
+          <span>**** **** **** 1890</span>
+        </div>
+      </section>
+
+      <section class="panel pulse-panel">
+        <div class="section-head section-head-tight">
+          <h2>Goal pulse</h2>
+          <p>Live status</p>
+        </div>
+        <div id="goalPulse" class="goal-pulse-list"></div>
+      </section>
+
+      <section class="panel tip-panel" aria-label="Planner tip">
+        <h2>Planner tip</h2>
+        <p>If emergency coverage drops below 4 months, shift scenario to conservative before growing holiday spend.</p>
+      </section>
+    </aside>
   </div>
 
   <script src="./app.js"></script>

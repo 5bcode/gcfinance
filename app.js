@@ -48,6 +48,17 @@ function fetchCombinedFinanceData() {
   };
 }
 
+function formatAsOf(dateString) {
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return dateString;
+
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 function monthLabelFrom(date) {
   return date.toLocaleString("en-US", { month: "short" });
 }
@@ -84,25 +95,55 @@ function renderLineChart(containerId, labels, values, options) {
   const padding = 28;
   const points = toPolylinePoints(values, width, height, padding);
   const container = document.getElementById(containerId);
+  if (!container) return;
+
+  const parts = points.split(" ");
+  const [lastX = width - padding, lastY = height / 2] = (parts[parts.length - 1] || "")
+    .split(",")
+    .map((entry) => Number(entry));
 
   const labelMarkup = labels
     .map((label, idx) => {
       const x = padding + (idx * (width - padding * 2)) / (labels.length - 1 || 1);
-      return `<text x="${x}" y="226" text-anchor="middle" fill="#64748b" font-size="11">${label}</text>`;
+      return `<text x="${x}" y="226" text-anchor="middle" fill="#7d8fab" font-size="11">${label}</text>`;
     })
     .join("");
+
+  const gridMarkup = Array.from({ length: 4 }, (_, idx) => {
+    const y = padding + ((height - padding * 2) * idx) / 3;
+    return `<line x1="${padding}" y1="${y}" x2="${width - padding}" y2="${y}" stroke="rgba(170, 194, 230, 0.18)" stroke-dasharray="4 6" />`;
+  }).join("");
 
   container.innerHTML = `
     <svg viewBox="0 0 ${width} ${height}" width="100%" height="100%" preserveAspectRatio="none" aria-hidden="true">
       <defs>
         <linearGradient id="${containerId}-fill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="${options.color}" stop-opacity="0.25" />
+          <stop offset="0%" stop-color="${options.color}" stop-opacity="0.26" />
           <stop offset="100%" stop-color="${options.color}" stop-opacity="0.03" />
         </linearGradient>
+        <filter id="${containerId}-glow" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="2.5" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
       </defs>
-      <polyline points="${points} ${(width - padding)},${height - padding} ${padding},${height - padding}"
-        fill="url(#${containerId}-fill)" stroke="none" />
-      <polyline points="${points}" fill="none" stroke="${options.color}" stroke-width="3" stroke-linecap="round" />
+      ${gridMarkup}
+      <polyline
+        points="${points} ${(width - padding)},${height - padding} ${padding},${height - padding}"
+        fill="url(#${containerId}-fill)"
+        stroke="none"
+      />
+      <polyline
+        points="${points}"
+        fill="none"
+        stroke="${options.color}"
+        stroke-width="3"
+        stroke-linecap="round"
+        filter="url(#${containerId}-glow)"
+      />
+      <circle cx="${lastX}" cy="${lastY}" r="5.5" fill="${options.color}" stroke="#e7f2ff" stroke-width="2" />
       ${labelMarkup}
     </svg>
   `;
@@ -135,6 +176,7 @@ function buildDerivedState(state) {
   const netWorth = baseNetWorth + (totalCurrent - baselineCurrent);
 
   const goalsContribution = state.goals.reduce((sum, goal) => sum + goal.monthlyContribution, 0);
+  const contributionPctStep = totalTarget > 0 ? Math.round((goalsContribution / totalTarget) * 100) : 0;
   const projectionMonths = state.projectionMonths;
   const projectionLabels = [];
   const projectionBalance = [];
@@ -147,7 +189,7 @@ function buildDerivedState(state) {
     const date = addMonths(new Date(), i);
     projectionLabels.push(monthLabelFrom(date));
     rollingBalance += monthlySavings;
-    rollingGoalPct = Math.min(100, rollingGoalPct + Math.round((goalsContribution / totalTarget) * 100));
+    rollingGoalPct = Math.min(100, rollingGoalPct + contributionPctStep);
     projectionBalance.push(rollingBalance);
     projectionFunding.push(rollingGoalPct);
   }
@@ -157,10 +199,22 @@ function buildDerivedState(state) {
   const trendLabels = [...state.seed.trends.months, ...projectionLabels];
 
   const kpis = [
-    { label: "Net Worth", value: netWorth, changePct: Math.round((monthlySavings / netWorth) * 1000) / 10 },
+    {
+      label: "Net Worth",
+      value: netWorth,
+      changePct: netWorth > 0 ? Math.round((monthlySavings / netWorth) * 1000) / 10 : 0,
+    },
     { label: "Monthly Savings", value: monthlySavings, changePct: Math.round((savingsMultiplier - 1) * 100) },
     { label: "Emergency Fund Coverage", value: emergencyCoverage, unit: "months", changePct: 0 },
-    { label: "Goals Funded", value: goalsFundedPct, unit: "%", changePct: Math.max(goalsFundedPct - state.seed.trends.goalsFundingPct[state.seed.trends.goalsFundingPct.length - 1], 0) },
+    {
+      label: "Goals Funded",
+      value: goalsFundedPct,
+      unit: "%",
+      changePct: Math.max(
+        goalsFundedPct - state.seed.trends.goalsFundingPct[state.seed.trends.goalsFundingPct.length - 1],
+        0,
+      ),
+    },
   ];
 
   return { kpis, trendLabels, balanceTrend, goalsTrend };
@@ -168,6 +222,8 @@ function buildDerivedState(state) {
 
 function renderKpis(kpis) {
   const grid = document.getElementById("kpiGrid");
+  if (!grid) return;
+
   grid.innerHTML = kpis
     .map((kpi) => {
       const directionClass = kpi.changePct >= 0 ? "up" : "down";
@@ -185,6 +241,8 @@ function renderKpis(kpis) {
 
 function renderGoals(goals) {
   const tbody = document.getElementById("goalRows");
+  if (!tbody) return;
+
   tbody.innerHTML = goals
     .map((goal) => {
       const pct = goal.target ? Math.min(100, Math.round((goal.current / goal.target) * 100)) : 0;
@@ -205,6 +263,45 @@ function renderGoals(goals) {
     `;
     })
     .join("");
+}
+
+function renderGoalPulse(goals) {
+  const container = document.getElementById("goalPulse");
+  if (!container) return;
+
+  container.innerHTML = goals
+    .map((goal) => {
+      const pct = goal.target ? Math.min(100, Math.round((goal.current / goal.target) * 100)) : 0;
+      const remaining = Math.max(0, goal.target - goal.current);
+
+      return `
+        <article class="goal-pulse-item">
+          <h3>${goal.name}</h3>
+          <div class="progress-track pulse-progress" aria-hidden="true">
+            <div class="progress-fill" style="width:${pct}%"></div>
+          </div>
+          <p>${pct}% funded · ${USD.format(remaining)} remaining</p>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function renderInsights(state, derived) {
+  const netWorth = derived.kpis.find((kpi) => kpi.label === "Net Worth");
+  const monthlySavings = derived.kpis.find((kpi) => kpi.label === "Monthly Savings");
+
+  const netWorthEl = document.getElementById("snapshotNetWorth");
+  if (netWorthEl && netWorth) {
+    netWorthEl.textContent = USD.format(netWorth.value);
+  }
+
+  const savingsEl = document.getElementById("snapshotSavings");
+  if (savingsEl && monthlySavings) {
+    savingsEl.textContent = `${USD.format(monthlySavings.value)} / month`;
+  }
+
+  renderGoalPulse(state.goals);
 }
 
 function setupBindings(state, rerender) {
@@ -262,13 +359,18 @@ function setupBindings(state, rerender) {
 }
 
 function renderDashboard(state) {
-  document.getElementById("asOfDate").textContent = `As of ${state.seed.asOf}`;
+  const asOfDate = document.getElementById("asOfDate");
+  if (asOfDate) {
+    asOfDate.textContent = `As of ${formatAsOf(state.seed.asOf)}`;
+  }
+
   const derived = buildDerivedState(state);
 
   renderKpis(derived.kpis);
-  renderLineChart("balanceTrend", derived.trendLabels, derived.balanceTrend, { color: "#1d4ed8" });
-  renderLineChart("goalsTrend", derived.trendLabels, derived.goalsTrend, { color: "#0f766e" });
+  renderLineChart("balanceTrend", derived.trendLabels, derived.balanceTrend, { color: "#59b7ff" });
+  renderLineChart("goalsTrend", derived.trendLabels, derived.goalsTrend, { color: "#30f5d0" });
   renderGoals(state.goals);
+  renderInsights(state, derived);
 }
 
 function bootstrap() {
