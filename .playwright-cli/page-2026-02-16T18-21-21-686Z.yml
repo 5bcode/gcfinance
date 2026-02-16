@@ -1,0 +1,149 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - paragraph [ref=e5]: Combined Finance Planner
+      - heading "Home, Holiday, and Safety Goals" [level=1] [ref=e6]
+    - generic [ref=e7]: As of 2026-02-16
+  - region "Assumptions" [ref=e8]:
+    - heading "Assumptions (edit in code)" [level=2] [ref=e9]
+    - list [ref=e10]:
+      - listitem [ref=e11]: "One shared monthly budget and three priority goals: house, holiday, emergency fund."
+      - listitem [ref=e12]: "Simple shell: placeholders are used where exact metrics/accounts were not specified."
+      - listitem [ref=e13]: All values are shown in USD; data currently comes from a local mock adapter.
+  - region "Planner Controls" [ref=e14]:
+    - generic [ref=e15]:
+      - generic [ref=e16]: Savings scenario
+      - combobox "Savings scenario" [ref=e17]:
+        - option "Conservative"
+        - option "Base"
+        - option "Aggressive" [selected]
+    - generic [ref=e18]:
+      - generic [ref=e19]: Projection window
+      - combobox "Projection window" [ref=e20]:
+        - option "6 months"
+        - option "12 months" [selected]
+    - generic [ref=e21]:
+      - generic [ref=e22]: Monthly essentials
+      - spinbutton "Monthly essentials" [ref=e23]: "2100"
+    - button "Reset to defaults" [ref=e24] [cursor=pointer]
+  - main [ref=e25]:
+    - region "Headline KPIs" [ref=e26]:
+      - generic [ref=e27]:
+        - heading "Headline KPIs" [level=2] [ref=e28]
+        - paragraph [ref=e29]: Fast health check for your combined finances
+      - generic [ref=e30]:
+        - article [ref=e221]:
+          - paragraph [ref=e222]: Net Worth
+          - paragraph [ref=e223]: $84,250
+          - paragraph [ref=e224]: +4.5% vs reference
+        - article [ref=e225]:
+          - paragraph [ref=e226]: Monthly Savings
+          - paragraph [ref=e227]: $3,780
+          - paragraph [ref=e228]: +20% vs reference
+        - article [ref=e229]:
+          - paragraph [ref=e230]: Emergency Fund Coverage
+          - paragraph [ref=e231]: 4.6 months
+          - paragraph [ref=e232]: +0% vs reference
+        - article [ref=e233]:
+          - paragraph [ref=e234]: Goals Funded
+          - paragraph [ref=e235]: 36%
+          - paragraph [ref=e236]: +0% vs reference
+    - region "Trends" [ref=e47]:
+      - generic [ref=e48]:
+        - heading "Trends" [level=2] [ref=e49]
+        - paragraph [ref=e50]: Month-by-month direction for total balance and goal funding
+      - generic [ref=e51]:
+        - article [ref=e52]:
+          - heading "Total Household Balance" [level=3] [ref=e53]
+          - img "Household balance trend chart" [ref=e54]:
+            - img [ref=e237]:
+              - generic [ref=e240]: Sep
+              - generic [ref=e241]: Oct
+              - generic [ref=e242]: Nov
+              - generic [ref=e243]: Dec
+              - generic [ref=e244]: Jan
+              - generic [ref=e245]: Feb
+              - generic [ref=e246]: Mar
+              - generic [ref=e247]: Apr
+              - generic [ref=e248]: May
+              - generic [ref=e249]: Jun
+              - generic [ref=e250]: Jul
+              - generic [ref=e251]: Aug
+              - generic [ref=e252]: Sep
+              - generic [ref=e253]: Oct
+              - generic [ref=e254]: Nov
+              - generic [ref=e255]: Dec
+              - generic [ref=e256]: Jan
+              - generic [ref=e257]: Feb
+        - article [ref=e70]:
+          - heading "Goal Progress Trend" [level=3] [ref=e71]
+          - img "Goal progress trend chart" [ref=e72]:
+            - img [ref=e258]:
+              - generic [ref=e261]: Sep
+              - generic [ref=e262]: Oct
+              - generic [ref=e263]: Nov
+              - generic [ref=e264]: Dec
+              - generic [ref=e265]: Jan
+              - generic [ref=e266]: Feb
+              - generic [ref=e267]: Mar
+              - generic [ref=e268]: Apr
+              - generic [ref=e269]: May
+              - generic [ref=e270]: Jun
+              - generic [ref=e271]: Jul
+              - generic [ref=e272]: Aug
+              - generic [ref=e273]: Sep
+              - generic [ref=e274]: Oct
+              - generic [ref=e275]: Nov
+              - generic [ref=e276]: Dec
+              - generic [ref=e277]: Jan
+              - generic [ref=e278]: Feb
+    - region "Goal Breakdown" [ref=e88]:
+      - generic [ref=e89]:
+        - heading "Goal Breakdown" [level=2] [ref=e90]
+        - paragraph [ref=e91]: Contribution, funding gap, and ETA by goal
+      - table [ref=e93]:
+        - rowgroup [ref=e94]:
+          - row "Goal Target Current Progress Monthly Contribution ETA" [ref=e95]:
+            - columnheader "Goal" [ref=e96]
+            - columnheader "Target" [ref=e97]
+            - columnheader "Current" [ref=e98]
+            - columnheader "Progress" [ref=e99]
+            - columnheader "Monthly Contribution" [ref=e100]
+            - columnheader "ETA" [ref=e101]
+        - rowgroup [ref=e102]:
+          - row "House Deposit 80000 24800 House Deposit progress 31% 1300 Sep 2029" [ref=e279]:
+            - cell "House Deposit" [ref=e280]
+            - cell "80000" [ref=e281]:
+              - spinbutton "House Deposit target" [ref=e282]: "80000"
+            - cell "24800" [ref=e283]:
+              - spinbutton "House Deposit current" [ref=e284]: "24800"
+            - cell "House Deposit progress 31%" [ref=e285]:
+              - generic "House Deposit progress" [ref=e286]
+              - text: 31%
+            - cell "1300" [ref=e288]:
+              - spinbutton "House Deposit contribution" [ref=e289]: "1300"
+            - cell "Sep 2029" [ref=e290]
+          - row "Holiday (Japan) 9000 3800 Holiday (Japan) progress 42% 450 Feb 2027" [ref=e291]:
+            - cell "Holiday (Japan)" [ref=e292]
+            - cell "9000" [ref=e293]:
+              - spinbutton "Holiday (Japan) target" [ref=e294]: "9000"
+            - cell "3800" [ref=e295]:
+              - spinbutton "Holiday (Japan) current" [ref=e296]: "3800"
+            - cell "Holiday (Japan) progress 42%" [ref=e297]:
+              - generic "Holiday (Japan) progress" [ref=e298]
+              - text: 42%
+            - cell "450" [ref=e300]:
+              - spinbutton "Holiday (Japan) contribution" [ref=e301]: "450"
+            - cell "Feb 2027" [ref=e302]
+          - row "Emergency Fund 18000 9700 Emergency Fund progress 54% 700 Feb 2027" [ref=e303]:
+            - cell "Emergency Fund" [ref=e304]
+            - cell "18000" [ref=e305]:
+              - spinbutton "Emergency Fund target" [ref=e306]: "18000"
+            - cell "9700" [ref=e307]:
+              - spinbutton "Emergency Fund current" [ref=e308]: "9700"
+            - cell "Emergency Fund progress 54%" [ref=e309]:
+              - generic "Emergency Fund progress" [ref=e310]
+              - text: 54%
+            - cell "700" [ref=e312]:
+              - spinbutton "Emergency Fund contribution" [ref=e313]: "700"
+            - cell "Feb 2027" [ref=e314]

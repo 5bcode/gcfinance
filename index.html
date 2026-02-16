@@ -27,6 +27,29 @@
       </ul>
     </section>
 
+    <section class="controls panel" aria-label="Planner Controls">
+      <div class="control-group">
+        <label for="scenarioSelect">Savings scenario</label>
+        <select id="scenarioSelect">
+          <option value="conservative">Conservative</option>
+          <option value="base" selected>Base</option>
+          <option value="aggressive">Aggressive</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <label for="projectionMonths">Projection window</label>
+        <select id="projectionMonths">
+          <option value="6" selected>6 months</option>
+          <option value="12">12 months</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <label for="monthlyEssentials">Monthly essentials</label>
+        <input id="monthlyEssentials" type="number" min="500" step="50" value="2100" />
+      </div>
+      <button id="resetBtn" class="btn-reset" type="button">Reset to defaults</button>
+    </section>
+
     <main>
       <section aria-labelledby="kpiTitle">
         <div class="section-head">
