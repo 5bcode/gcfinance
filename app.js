@@ -1,391 +1,756 @@
-const USD = new Intl.NumberFormat("en-US", {
+const GBP = new Intl.NumberFormat("en-GB", {
   style: "currency",
-  currency: "USD",
+  currency: "GBP",
   maximumFractionDigits: 0,
 });
 
-const SCENARIO_MULTIPLIER = {
-  conservative: 0.85,
-  base: 1,
-  aggressive: 1.2,
+const INITIAL_DATA = {
+  accounts: [
+    { id: "acct-alex-main", name: "Main Current", owner: "Alex", balance: 4200 },
+    { id: "acct-jordan-save", name: "Savings Pot", owner: "Jordan", balance: 6800 },
+    { id: "acct-joint-isa", name: "Joint Goal Saver", owner: "Joint", balance: 11800 },
+  ],
+  goals: [
+    {
+      id: "goal-house",
+      name: "House",
+      subGoals: [
+        { id: "sg-house-deposit", name: "Deposit", target: 45000 },
+        { id: "sg-house-solicitor", name: "Solicitor Fees", target: 3500 },
+        { id: "sg-house-moving", name: "Moving Costs", target: 2800 },
+      ],
+    },
+    {
+      id: "goal-safety",
+      name: "Emergency Buffer",
+      subGoals: [
+        { id: "sg-safety-income", name: "6-Month Income Cover", target: 12000 },
+        { id: "sg-safety-home", name: "Home Repair Buffer", target: 2000 },
+      ],
+    },
+  ],
+  allocations: [
+    { id: "alloc-1", accountId: "acct-joint-isa", subGoalId: "sg-house-deposit", amount: 9400 },
+    { id: "alloc-2", accountId: "acct-jordan-save", subGoalId: "sg-house-solicitor", amount: 1200 },
+    { id: "alloc-3", accountId: "acct-alex-main", subGoalId: "sg-house-moving", amount: 600 },
+    { id: "alloc-4", accountId: "acct-joint-isa", subGoalId: "sg-safety-income", amount: 1800 },
+  ],
 };
 
-function fetchCombinedFinanceData() {
-  // TODO: Replace with real API fetch (bank feeds, budgeting app, or spreadsheet sync).
-  // Wiring point: return this exact shape from your data layer for drop-in compatibility.
-  return {
-    asOf: "2026-02-16",
-    trends: {
-      months: ["Sep", "Oct", "Nov", "Dec", "Jan", "Feb"],
-      householdBalance: [61200, 64800, 69300, 72550, 80100, 84250],
-      goalsFundingPct: [22, 25, 27, 31, 35, 39],
-    },
-    monthlySavingsBase: 3150,
-    monthlyEssentialsBase: 2100,
-    goals: [
-      {
-        id: "house",
-        name: "House Deposit",
-        target: 80000,
-        current: 24800,
-        monthlyContribution: 1300,
-      },
-      {
-        id: "holiday",
-        name: "Holiday (Japan)",
-        target: 9000,
-        current: 3800,
-        monthlyContribution: 450,
-      },
-      {
-        id: "emergency",
-        name: "Emergency Fund",
-        target: 18000,
-        current: 9700,
-        monthlyContribution: 700,
-      },
-    ],
-  };
+let state = structuredClone(INITIAL_DATA);
+
+function makeId(prefix) {
+  return `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-function formatAsOf(dateString) {
-  const date = new Date(dateString);
-  if (Number.isNaN(date.getTime())) return dateString;
+function normalizeAmount(value) {
+  return Math.round(Math.max(0, Number(value) || 0));
+}
 
-  return date.toLocaleDateString("en-US", {
-    month: "short",
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function dateLabel(date = new Date()) {
+  return date.toLocaleDateString("en-GB", {
     day: "numeric",
+    month: "short",
     year: "numeric",
   });
 }
 
-function monthLabelFrom(date) {
-  return date.toLocaleString("en-US", { month: "short" });
+function flattenSubGoals(goals) {
+  const list = [];
+  goals.forEach((goal, goalIndex) => {
+    goal.subGoals.forEach((subGoal, subIndex) => {
+      list.push({
+        ...subGoal,
+        goalId: goal.id,
+        goalName: goal.name,
+        goalIndex,
+        subIndex,
+      });
+    });
+  });
+  return list;
 }
 
-function addMonths(startDate, monthsToAdd) {
-  const next = new Date(startDate);
-  next.setMonth(next.getMonth() + monthsToAdd);
-  return next;
+function sanitizeState() {
+  const accountIds = new Set();
+  state.accounts = state.accounts.map((account, idx) => {
+    const next = {
+      ...account,
+      id: account.id || makeId("acct"),
+      name: String(account.name || `Account ${idx + 1}`).trim() || `Account ${idx + 1}`,
+      owner: String(account.owner || "Joint").trim() || "Joint",
+      balance: normalizeAmount(account.balance),
+    };
+    accountIds.add(next.id);
+    return next;
+  });
+
+  const subGoalIds = new Set();
+  state.goals = state.goals.map((goal, idx) => {
+    const cleanGoal = {
+      ...goal,
+      id: goal.id || makeId("goal"),
+      name: String(goal.name || `Goal ${idx + 1}`).trim() || `Goal ${idx + 1}`,
+      subGoals: goal.subGoals.map((subGoal, subIdx) => {
+        const cleanSubGoal = {
+          ...subGoal,
+          id: subGoal.id || makeId("sg"),
+          name: String(subGoal.name || `Sub-goal ${subIdx + 1}`).trim() || `Sub-goal ${subIdx + 1}`,
+          target: normalizeAmount(subGoal.target),
+        };
+        subGoalIds.add(cleanSubGoal.id);
+        return cleanSubGoal;
+      }),
+    };
+    return cleanGoal;
+  });
+
+  state.allocations = state.allocations
+    .map((allocation) => ({
+      ...allocation,
+      id: allocation.id || makeId("alloc"),
+      amount: normalizeAmount(allocation.amount),
+    }))
+    .filter((allocation) => {
+      return allocation.amount > 0 && accountIds.has(allocation.accountId) && subGoalIds.has(allocation.subGoalId);
+    });
 }
 
-function formatKpiValue(kpi) {
-  if (kpi.unit === "%") return `${kpi.value}%`;
-  if (kpi.unit === "months") return `${kpi.value.toFixed(1)} months`;
-  return USD.format(kpi.value);
+function deriveState() {
+  const subGoals = flattenSubGoals(state.goals);
+  const subGoalById = new Map(subGoals.map((subGoal) => [subGoal.id, subGoal]));
+  const accountById = new Map(state.accounts.map((account) => [account.id, account]));
+
+  const accountAssigned = new Map(state.accounts.map((account) => [account.id, 0]));
+  const subGoalAssigned = new Map(subGoals.map((subGoal) => [subGoal.id, 0]));
+
+  state.allocations.forEach((allocation) => {
+    const amount = normalizeAmount(allocation.amount);
+    if (!amount || !accountById.has(allocation.accountId) || !subGoalById.has(allocation.subGoalId)) return;
+
+    accountAssigned.set(allocation.accountId, (accountAssigned.get(allocation.accountId) || 0) + amount);
+    subGoalAssigned.set(allocation.subGoalId, (subGoalAssigned.get(allocation.subGoalId) || 0) + amount);
+  });
+
+  const accountsDerived = state.accounts.map((account) => {
+    const assigned = accountAssigned.get(account.id) || 0;
+    const available = account.balance - assigned;
+    return {
+      ...account,
+      assigned,
+      available,
+    };
+  });
+
+  const goalsDerived = state.goals.map((goal) => {
+    const target = goal.subGoals.reduce((sum, subGoal) => sum + normalizeAmount(subGoal.target), 0);
+    const assigned = goal.subGoals.reduce((sum, subGoal) => sum + (subGoalAssigned.get(subGoal.id) || 0), 0);
+    const remaining = Math.max(0, target - assigned);
+    const progress = target ? Math.min(100, Math.round((assigned / target) * 100)) : 0;
+
+    return {
+      ...goal,
+      target,
+      assigned,
+      remaining,
+      progress,
+    };
+  });
+
+  const subGoalsDerived = subGoals.map((subGoal) => {
+    const assigned = subGoalAssigned.get(subGoal.id) || 0;
+    const target = normalizeAmount(subGoal.target);
+    const remaining = Math.max(0, target - assigned);
+    const progress = target ? Math.min(100, Math.round((assigned / target) * 100)) : 0;
+
+    return {
+      ...subGoal,
+      target,
+      assigned,
+      remaining,
+      progress,
+    };
+  });
+
+  const totalFunds = accountsDerived.reduce((sum, account) => sum + account.balance, 0);
+  const totalAssigned = accountsDerived.reduce((sum, account) => sum + account.assigned, 0);
+  const readyToAssign = totalFunds - totalAssigned;
+  const totalTarget = goalsDerived.reduce((sum, goal) => sum + goal.target, 0);
+  const underFunded = subGoalsDerived.reduce((sum, subGoal) => sum + subGoal.remaining, 0);
+  const overallProgress = totalTarget ? Math.min(100, Math.round((totalAssigned / totalTarget) * 100)) : 0;
+
+  return {
+    subGoalById,
+    accountsDerived,
+    goalsDerived,
+    subGoalsDerived,
+    totalFunds,
+    totalAssigned,
+    readyToAssign,
+    underFunded,
+    overallProgress,
+  };
 }
 
-function toPolylinePoints(values, width, height, padding) {
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = max - min || 1;
+function setAllocatorMessage(text, type = "success") {
+  const message = document.getElementById("allocatorMessage");
+  if (!message) return;
 
-  return values
-    .map((value, idx) => {
-      const x = padding + (idx * (width - padding * 2)) / (values.length - 1 || 1);
-      const y = height - padding - ((value - min) / range) * (height - padding * 2);
-      return `${x},${y}`;
-    })
-    .join(" ");
+  message.textContent = text;
+  message.className = `allocator-message ${type}`;
 }
 
-function renderLineChart(containerId, labels, values, options) {
-  const width = 640;
-  const height = 240;
-  const padding = 28;
-  const points = toPolylinePoints(values, width, height, padding);
-  const container = document.getElementById(containerId);
-  if (!container) return;
+function renderSummary(derived) {
+  const setText = (id, value) => {
+    const node = document.getElementById(id);
+    if (node) node.textContent = value;
+  };
 
-  const parts = points.split(" ");
-  const [lastX = width - padding, lastY = height / 2] = (parts[parts.length - 1] || "")
-    .split(",")
-    .map((entry) => Number(entry));
+  setText("asOfDate", dateLabel());
+  setText("totalFundsValue", GBP.format(derived.totalFunds));
+  setText("readyToAssignValue", GBP.format(derived.readyToAssign));
+  setText("totalAssignedValue", GBP.format(derived.totalAssigned));
+  setText("underFundedValue", GBP.format(derived.underFunded));
+  setText("overallProgressValue", `${derived.overallProgress}%`);
 
-  const labelMarkup = labels
-    .map((label, idx) => {
-      const x = padding + (idx * (width - padding * 2)) / (labels.length - 1 || 1);
-      return `<text x="${x}" y="226" text-anchor="middle" fill="#7d8fab" font-size="11">${label}</text>`;
-    })
-    .join("");
-
-  const gridMarkup = Array.from({ length: 4 }, (_, idx) => {
-    const y = padding + ((height - padding * 2) * idx) / 3;
-    return `<line x1="${padding}" y1="${y}" x2="${width - padding}" y2="${y}" stroke="rgba(170, 194, 230, 0.18)" stroke-dasharray="4 6" />`;
-  }).join("");
-
-  container.innerHTML = `
-    <svg viewBox="0 0 ${width} ${height}" width="100%" height="100%" preserveAspectRatio="none" aria-hidden="true">
-      <defs>
-        <linearGradient id="${containerId}-fill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="${options.color}" stop-opacity="0.26" />
-          <stop offset="100%" stop-color="${options.color}" stop-opacity="0.03" />
-        </linearGradient>
-        <filter id="${containerId}-glow" x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur stdDeviation="2.5" result="blur" />
-          <feMerge>
-            <feMergeNode in="blur" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
-      </defs>
-      ${gridMarkup}
-      <polyline
-        points="${points} ${(width - padding)},${height - padding} ${padding},${height - padding}"
-        fill="url(#${containerId}-fill)"
-        stroke="none"
-      />
-      <polyline
-        points="${points}"
-        fill="none"
-        stroke="${options.color}"
-        stroke-width="3"
-        stroke-linecap="round"
-        filter="url(#${containerId}-glow)"
-      />
-      <circle cx="${lastX}" cy="${lastY}" r="5.5" fill="${options.color}" stroke="#e7f2ff" stroke-width="2" />
-      ${labelMarkup}
-    </svg>
-  `;
-}
-
-function calculateEta(goal) {
-  const gap = Math.max(goal.target - goal.current, 0);
-  if (gap === 0) return "Funded";
-  if (goal.monthlyContribution <= 0) return "No contribution";
-
-  const months = Math.ceil(gap / goal.monthlyContribution);
-  const etaDate = addMonths(new Date(), months);
-  return `${monthLabelFrom(etaDate)} ${etaDate.getFullYear()}`;
-}
-
-function buildDerivedState(state) {
-  const scenario = state.scenario;
-  const savingsMultiplier = SCENARIO_MULTIPLIER[scenario] || 1;
-  const monthlySavings = Math.round(state.seed.monthlySavingsBase * savingsMultiplier);
-
-  const totalTarget = state.goals.reduce((sum, goal) => sum + goal.target, 0);
-  const totalCurrent = state.goals.reduce((sum, goal) => sum + goal.current, 0);
-  const goalsFundedPct = totalTarget ? Math.round((totalCurrent / totalTarget) * 100) : 0;
-
-  const emergencyGoal = state.goals.find((goal) => goal.id === "emergency");
-  const emergencyCoverage = emergencyGoal ? emergencyGoal.current / state.monthlyEssentials : 0;
-
-  const baselineCurrent = state.seed.goals.reduce((sum, goal) => sum + goal.current, 0);
-  const baseNetWorth = state.seed.trends.householdBalance[state.seed.trends.householdBalance.length - 1];
-  const netWorth = baseNetWorth + (totalCurrent - baselineCurrent);
-
-  const goalsContribution = state.goals.reduce((sum, goal) => sum + goal.monthlyContribution, 0);
-  const contributionPctStep = totalTarget > 0 ? Math.round((goalsContribution / totalTarget) * 100) : 0;
-  const projectionMonths = state.projectionMonths;
-  const projectionLabels = [];
-  const projectionBalance = [];
-  const projectionFunding = [];
-
-  let rollingBalance = netWorth;
-  let rollingGoalPct = goalsFundedPct;
-
-  for (let i = 1; i <= projectionMonths; i += 1) {
-    const date = addMonths(new Date(), i);
-    projectionLabels.push(monthLabelFrom(date));
-    rollingBalance += monthlySavings;
-    rollingGoalPct = Math.min(100, rollingGoalPct + contributionPctStep);
-    projectionBalance.push(rollingBalance);
-    projectionFunding.push(rollingGoalPct);
+  const meter = document.getElementById("overallProgressBar");
+  if (meter) {
+    meter.style.width = `${derived.overallProgress}%`;
   }
 
-  const balanceTrend = [...state.seed.trends.householdBalance, ...projectionBalance];
-  const goalsTrend = [...state.seed.trends.goalsFundingPct, ...projectionFunding];
-  const trendLabels = [...state.seed.trends.months, ...projectionLabels];
-
-  const kpis = [
-    {
-      label: "Net Worth",
-      value: netWorth,
-      changePct: netWorth > 0 ? Math.round((monthlySavings / netWorth) * 1000) / 10 : 0,
-    },
-    { label: "Monthly Savings", value: monthlySavings, changePct: Math.round((savingsMultiplier - 1) * 100) },
-    { label: "Emergency Fund Coverage", value: emergencyCoverage, unit: "months", changePct: 0 },
-    {
-      label: "Goals Funded",
-      value: goalsFundedPct,
-      unit: "%",
-      changePct: Math.max(
-        goalsFundedPct - state.seed.trends.goalsFundingPct[state.seed.trends.goalsFundingPct.length - 1],
-        0,
-      ),
-    },
-  ];
-
-  return { kpis, trendLabels, balanceTrend, goalsTrend };
+  const ready = document.getElementById("readyToAssignValue");
+  if (ready) {
+    ready.classList.toggle("negative", derived.readyToAssign < 0);
+  }
 }
 
-function renderKpis(kpis) {
-  const grid = document.getElementById("kpiGrid");
-  if (!grid) return;
-
-  grid.innerHTML = kpis
-    .map((kpi) => {
-      const directionClass = kpi.changePct >= 0 ? "up" : "down";
-      const sign = kpi.changePct >= 0 ? "+" : "";
-      return `
-        <article class="kpi-card">
-          <p class="kpi-label">${kpi.label}</p>
-          <p class="kpi-value">${formatKpiValue(kpi)}</p>
-          <p class="kpi-change ${directionClass}">${sign}${kpi.changePct}% vs reference</p>
-        </article>
-      `;
-    })
-    .join("");
-}
-
-function renderGoals(goals) {
-  const tbody = document.getElementById("goalRows");
+function renderAccounts(derived) {
+  const tbody = document.getElementById("accountsTbody");
   if (!tbody) return;
 
-  tbody.innerHTML = goals
-    .map((goal) => {
-      const pct = goal.target ? Math.min(100, Math.round((goal.current / goal.target) * 100)) : 0;
+  if (!derived.accountsDerived.length) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No accounts yet. Add one to start allocating funds.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = derived.accountsDerived
+    .map((account) => {
+      const availableClass = account.available < 0 ? "number negative" : "number";
+
       return `
-      <tr data-goal-id="${goal.id}">
-        <td>${goal.name}</td>
-        <td><input aria-label="${goal.name} target" data-field="target" type="number" min="0" step="100" value="${goal.target}" /></td>
-        <td><input aria-label="${goal.name} current" data-field="current" type="number" min="0" step="100" value="${goal.current}" /></td>
-        <td>
-          <div class="progress-track" aria-label="${goal.name} progress">
-            <div class="progress-fill" style="width:${pct}%"></div>
-          </div>
-          ${pct}%
-        </td>
-        <td><input aria-label="${goal.name} contribution" data-field="monthlyContribution" type="number" min="0" step="50" value="${goal.monthlyContribution}" /></td>
-        <td>${calculateEta(goal)}</td>
-      </tr>
-    `;
+        <tr data-account-id="${account.id}">
+          <td><input data-field="name" value="${escapeHtml(account.name)}" aria-label="Account name" /></td>
+          <td><input data-field="owner" value="${escapeHtml(account.owner)}" aria-label="Account owner" /></td>
+          <td><input data-field="balance" class="number" type="number" min="0" step="50" value="${account.balance}" aria-label="Account balance" /></td>
+          <td class="number">${GBP.format(account.assigned)}</td>
+          <td class="${availableClass}">${GBP.format(account.available)}</td>
+          <td><button type="button" class="row-remove" data-action="remove-account">Remove</button></td>
+        </tr>
+      `;
     })
     .join("");
 }
 
-function renderGoalPulse(goals) {
-  const container = document.getElementById("goalPulse");
-  if (!container) return;
+function renderAllocationForm(derived) {
+  const accountSelect = document.getElementById("allocationAccount");
+  const subGoalSelect = document.getElementById("allocationSubgoal");
+  const amountInput = document.getElementById("allocationAmount");
+  const form = document.getElementById("allocationForm");
 
-  container.innerHTML = goals
-    .map((goal) => {
-      const pct = goal.target ? Math.min(100, Math.round((goal.current / goal.target) * 100)) : 0;
-      const remaining = Math.max(0, goal.target - goal.current);
+  if (!accountSelect || !subGoalSelect || !amountInput || !form) return;
+
+  const previousAccount = accountSelect.value;
+  const previousSubGoal = subGoalSelect.value;
+
+  const eligibleAccounts = derived.accountsDerived.filter((account) => account.available > 0);
+  accountSelect.innerHTML = eligibleAccounts.length
+    ? eligibleAccounts
+        .map(
+          (account) =>
+            `<option value="${account.id}">${escapeHtml(account.owner)} - ${escapeHtml(account.name)} (${GBP.format(
+              account.available,
+            )} available)</option>`,
+        )
+        .join("")
+    : '<option value="">No account has available cash</option>';
+
+  if (eligibleAccounts.some((account) => account.id === previousAccount)) {
+    accountSelect.value = previousAccount;
+  }
+
+  const openSubGoals = derived.subGoalsDerived.filter((subGoal) => subGoal.remaining > 0);
+  subGoalSelect.innerHTML = openSubGoals.length
+    ? openSubGoals
+        .map(
+          (subGoal) =>
+            `<option value="${subGoal.id}">${escapeHtml(subGoal.goalName)} -> ${escapeHtml(subGoal.name)} (${GBP.format(
+              subGoal.remaining,
+            )} left)</option>`,
+        )
+        .join("")
+    : '<option value="">All sub-goals are funded</option>';
+
+  if (openSubGoals.some((subGoal) => subGoal.id === previousSubGoal)) {
+    subGoalSelect.value = previousSubGoal;
+  }
+
+  const canAssign = eligibleAccounts.length > 0 && openSubGoals.length > 0;
+  accountSelect.disabled = !eligibleAccounts.length;
+  subGoalSelect.disabled = !openSubGoals.length;
+  amountInput.disabled = !canAssign;
+
+  const submit = form.querySelector('button[type="submit"]');
+  if (submit) {
+    submit.disabled = !canAssign;
+  }
+}
+
+function renderAllocations(derived) {
+  const tbody = document.getElementById("allocationsTbody");
+  if (!tbody) return;
+
+  if (!state.allocations.length) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="4">No allocations yet. Assign money from an account to a sub-goal.</td></tr>';
+    return;
+  }
+
+  const accountById = new Map(derived.accountsDerived.map((account) => [account.id, account]));
+
+  tbody.innerHTML = state.allocations
+    .map((allocation) => {
+      const account = accountById.get(allocation.accountId);
+      const subGoal = derived.subGoalById.get(allocation.subGoalId);
+      if (!account || !subGoal) return "";
 
       return `
-        <article class="goal-pulse-item">
-          <h3>${goal.name}</h3>
-          <div class="progress-track pulse-progress" aria-hidden="true">
-            <div class="progress-fill" style="width:${pct}%"></div>
+        <tr data-allocation-id="${allocation.id}">
+          <td>${escapeHtml(account.owner)} - ${escapeHtml(account.name)}</td>
+          <td>${escapeHtml(subGoal.goalName)} -> ${escapeHtml(subGoal.name)}</td>
+          <td><input class="number" type="number" min="0" step="50" value="${normalizeAmount(
+            allocation.amount,
+          )}" data-field="amount" aria-label="Allocation amount" /></td>
+          <td><button type="button" class="row-remove" data-action="remove-allocation">Remove</button></td>
+        </tr>
+      `;
+    })
+    .join("");
+}
+
+function renderGoals(derived) {
+  const board = document.getElementById("goalBoard");
+  if (!board) return;
+
+  if (!derived.goalsDerived.length) {
+    board.innerHTML = '<p class="muted">No goals yet. Add one and break it down into sub-goals.</p>';
+    return;
+  }
+
+  board.innerHTML = derived.goalsDerived
+    .map((goal) => {
+      const rows = goal.subGoals.length
+        ? goal.subGoals
+            .map((subGoal) => {
+              const derivedSubGoal = derived.subGoalsDerived.find((item) => item.id === subGoal.id);
+              if (!derivedSubGoal) return "";
+
+              return `
+                <tr data-goal-id="${goal.id}" data-subgoal-id="${subGoal.id}">
+                  <td><input data-field="subgoal-name" value="${escapeHtml(subGoal.name)}" aria-label="Sub-goal name" /></td>
+                  <td><input data-field="subgoal-target" class="number" type="number" min="0" step="100" value="${derivedSubGoal.target}" aria-label="Sub-goal target" /></td>
+                  <td class="number">${GBP.format(derivedSubGoal.assigned)}</td>
+                  <td class="number">${GBP.format(derivedSubGoal.remaining)}</td>
+                  <td>
+                    <div class="progress-track" aria-hidden="true">
+                      <div class="progress-fill" style="width:${derivedSubGoal.progress}%"></div>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="subgoal-actions">
+                      <button type="button" class="action-ghost" data-action="fill-subgoal">Assign</button>
+                      <button type="button" class="row-remove" data-action="remove-subgoal">Remove</button>
+                    </div>
+                  </td>
+                </tr>
+              `;
+            })
+            .join("")
+        : '<tr class="empty-row"><td colspan="6">No sub-goals yet for this goal.</td></tr>';
+
+      return `
+        <article class="goal-card" data-goal-id="${goal.id}">
+          <div class="goal-header">
+            <input class="goal-name-input" data-field="goal-name" value="${escapeHtml(goal.name)}" aria-label="Goal name" />
+            <button type="button" class="row-remove" data-action="remove-goal">Remove goal</button>
           </div>
-          <p>${pct}% funded · ${USD.format(remaining)} remaining</p>
+
+          <div class="goal-metrics">
+            <span class="goal-chip">Target ${GBP.format(goal.target)}</span>
+            <span class="goal-chip">Assigned ${GBP.format(goal.assigned)}</span>
+            <span class="goal-chip">Remaining ${GBP.format(goal.remaining)}</span>
+            <span class="goal-chip">Funded ${goal.progress}%</span>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Sub-goal</th>
+                  <th>Target</th>
+                  <th>Assigned</th>
+                  <th>Remaining</th>
+                  <th>Progress</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+
+          <div class="goal-footer">
+            <button type="button" class="btn btn-secondary" data-action="add-subgoal">Add sub-goal</button>
+          </div>
         </article>
       `;
     })
     .join("");
 }
 
-function renderInsights(state, derived) {
-  const netWorth = derived.kpis.find((kpi) => kpi.label === "Net Worth");
-  const monthlySavings = derived.kpis.find((kpi) => kpi.label === "Monthly Savings");
-
-  const netWorthEl = document.getElementById("snapshotNetWorth");
-  if (netWorthEl && netWorth) {
-    netWorthEl.textContent = USD.format(netWorth.value);
-  }
-
-  const savingsEl = document.getElementById("snapshotSavings");
-  if (savingsEl && monthlySavings) {
-    savingsEl.textContent = `${USD.format(monthlySavings.value)} / month`;
-  }
-
-  renderGoalPulse(state.goals);
+function renderApp() {
+  sanitizeState();
+  const derived = deriveState();
+  renderSummary(derived);
+  renderAccounts(derived);
+  renderGoals(derived);
+  renderAllocationForm(derived);
+  renderAllocations(derived);
 }
 
-function setupBindings(state, rerender) {
-  const scenarioSelect = document.getElementById("scenarioSelect");
-  const projectionMonths = document.getElementById("projectionMonths");
-  const monthlyEssentials = document.getElementById("monthlyEssentials");
-  const resetBtn = document.getElementById("resetBtn");
-  const goalRows = document.getElementById("goalRows");
+function addOrUpdateAllocation(accountId, subGoalId, amountToAdd) {
+  const amount = normalizeAmount(amountToAdd);
+  if (!amount) return;
 
-  scenarioSelect.addEventListener("change", (event) => {
-    state.scenario = event.target.value;
-    rerender();
+  const existing = state.allocations.find(
+    (allocation) => allocation.accountId === accountId && allocation.subGoalId === subGoalId,
+  );
+
+  if (existing) {
+    existing.amount = normalizeAmount(existing.amount + amount);
+    return;
+  }
+
+  state.allocations.push({
+    id: makeId("alloc"),
+    accountId,
+    subGoalId,
+    amount,
+  });
+}
+
+function assignFunds(accountId, subGoalId, requestedAmount) {
+  const amount = normalizeAmount(requestedAmount);
+  if (!amount) {
+    setAllocatorMessage("Enter a positive amount to assign.", "warn");
+    return;
+  }
+
+  const derived = deriveState();
+  const account = derived.accountsDerived.find((item) => item.id === accountId);
+  const subGoal = derived.subGoalsDerived.find((item) => item.id === subGoalId);
+
+  if (!account || !subGoal) {
+    setAllocatorMessage("Select both an account and a sub-goal.", "warn");
+    return;
+  }
+
+  if (account.available <= 0) {
+    setAllocatorMessage("Selected account has no available cash to assign.", "warn");
+    return;
+  }
+
+  if (subGoal.remaining <= 0) {
+    setAllocatorMessage("That sub-goal is already fully funded.", "warn");
+    return;
+  }
+
+  const applied = Math.min(amount, account.available, subGoal.remaining);
+  addOrUpdateAllocation(accountId, subGoalId, applied);
+  renderApp();
+
+  if (applied < amount) {
+    setAllocatorMessage(`Assigned ${GBP.format(applied)} (capped by available cash or remaining target).`, "warn");
+    return;
+  }
+
+  setAllocatorMessage(`Assigned ${GBP.format(applied)} to ${subGoal.goalName} -> ${subGoal.name}.`, "success");
+}
+
+function autoAssignReadyCash() {
+  const derived = deriveState();
+  const openSubGoals = derived.subGoalsDerived.filter((subGoal) => subGoal.remaining > 0);
+  const fundedAccounts = derived.accountsDerived.filter((account) => account.available > 0);
+
+  if (!openSubGoals.length) {
+    setAllocatorMessage("All sub-goals are fully funded already.", "warn");
+    return;
+  }
+
+  if (!fundedAccounts.length) {
+    setAllocatorMessage("No available cash to auto-assign.", "warn");
+    return;
+  }
+
+  const remainingBySubGoal = new Map(openSubGoals.map((subGoal) => [subGoal.id, subGoal.remaining]));
+  let assignedTotal = 0;
+
+  fundedAccounts.forEach((account) => {
+    let accountAvailable = account.available;
+
+    for (const subGoal of openSubGoals) {
+      if (accountAvailable <= 0) break;
+
+      const subGoalRemaining = remainingBySubGoal.get(subGoal.id) || 0;
+      if (subGoalRemaining <= 0) continue;
+
+      const allocation = Math.min(accountAvailable, subGoalRemaining);
+      if (allocation <= 0) continue;
+
+      addOrUpdateAllocation(account.id, subGoal.id, allocation);
+      accountAvailable -= allocation;
+      remainingBySubGoal.set(subGoal.id, subGoalRemaining - allocation);
+      assignedTotal += allocation;
+    }
   });
 
-  projectionMonths.addEventListener("change", (event) => {
-    state.projectionMonths = Number(event.target.value);
-    rerender();
+  renderApp();
+
+  if (!assignedTotal) {
+    setAllocatorMessage("Auto-assign did not find any valid allocation moves.", "warn");
+    return;
+  }
+
+  setAllocatorMessage(`Auto-assigned ${GBP.format(assignedTotal)} across open sub-goals.`, "success");
+}
+
+function wireEvents() {
+  const accountsTbody = document.getElementById("accountsTbody");
+  const goalsBoard = document.getElementById("goalBoard");
+  const allocationForm = document.getElementById("allocationForm");
+  const allocationsTbody = document.getElementById("allocationsTbody");
+  const addAccountBtn = document.getElementById("addAccountBtn");
+  const addGoalBtn = document.getElementById("addGoalBtn");
+  const autoAssignBtn = document.getElementById("autoAssignBtn");
+
+  addAccountBtn?.addEventListener("click", () => {
+    state.accounts.push({
+      id: makeId("acct"),
+      name: "New Account",
+      owner: "Joint",
+      balance: 0,
+    });
+    renderApp();
   });
 
-  monthlyEssentials.addEventListener("input", (event) => {
-    const parsed = Number(event.target.value);
-    state.monthlyEssentials = parsed > 0 ? parsed : state.seed.monthlyEssentialsBase;
-    rerender();
+  addGoalBtn?.addEventListener("click", () => {
+    state.goals.push({
+      id: makeId("goal"),
+      name: "New Goal",
+      subGoals: [
+        {
+          id: makeId("sg"),
+          name: "Sub-goal 1",
+          target: 1000,
+        },
+      ],
+    });
+    renderApp();
   });
 
-  goalRows.addEventListener("input", (event) => {
+  autoAssignBtn?.addEventListener("click", autoAssignReadyCash);
+
+  accountsTbody?.addEventListener("input", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLInputElement)) return;
 
-    const row = target.closest("tr[data-goal-id]");
+    const row = target.closest("tr[data-account-id]");
     if (!row) return;
 
-    const goal = state.goals.find((item) => item.id === row.getAttribute("data-goal-id"));
+    const accountId = row.getAttribute("data-account-id");
+    const field = target.getAttribute("data-field");
+    if (!accountId || !field) return;
+
+    const account = state.accounts.find((entry) => entry.id === accountId);
+    if (!account) return;
+
+    if (field === "balance") {
+      account.balance = normalizeAmount(target.value);
+    } else {
+      account[field] = target.value;
+    }
+
+    renderApp();
+  });
+
+  accountsTbody?.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLButtonElement)) return;
+
+    if (target.getAttribute("data-action") !== "remove-account") return;
+
+    const row = target.closest("tr[data-account-id]");
+    const accountId = row?.getAttribute("data-account-id");
+    if (!accountId) return;
+
+    state.accounts = state.accounts.filter((account) => account.id !== accountId);
+    state.allocations = state.allocations.filter((allocation) => allocation.accountId !== accountId);
+    renderApp();
+  });
+
+  goalsBoard?.addEventListener("input", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement)) return;
+
+    const goalCard = target.closest("article[data-goal-id]");
+    if (!goalCard) return;
+
+    const goalId = goalCard.getAttribute("data-goal-id");
+    const goal = state.goals.find((entry) => entry.id === goalId);
     if (!goal) return;
 
     const field = target.getAttribute("data-field");
     if (!field) return;
 
-    const parsed = Math.max(0, Number(target.value) || 0);
-    goal[field] = parsed;
-    rerender();
+    if (field === "goal-name") {
+      goal.name = target.value;
+      renderApp();
+      return;
+    }
+
+    const subGoalRow = target.closest("tr[data-subgoal-id]");
+    const subGoalId = subGoalRow?.getAttribute("data-subgoal-id");
+    if (!subGoalId) return;
+
+    const subGoal = goal.subGoals.find((entry) => entry.id === subGoalId);
+    if (!subGoal) return;
+
+    if (field === "subgoal-target") {
+      subGoal.target = normalizeAmount(target.value);
+    }
+
+    if (field === "subgoal-name") {
+      subGoal.name = target.value;
+    }
+
+    renderApp();
   });
 
-  resetBtn.addEventListener("click", () => {
-    state.scenario = "base";
-    state.projectionMonths = 6;
-    state.monthlyEssentials = state.seed.monthlyEssentialsBase;
-    state.goals = state.seed.goals.map((goal) => ({ ...goal }));
+  goalsBoard?.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLButtonElement)) return;
 
-    scenarioSelect.value = "base";
-    projectionMonths.value = "6";
-    monthlyEssentials.value = String(state.seed.monthlyEssentialsBase);
-    rerender();
+    const goalCard = target.closest("article[data-goal-id]");
+    const goalId = goalCard?.getAttribute("data-goal-id");
+    if (!goalId) return;
+
+    const goal = state.goals.find((entry) => entry.id === goalId);
+    if (!goal) return;
+
+    const action = target.getAttribute("data-action");
+
+    if (action === "remove-goal") {
+      state.goals = state.goals.filter((entry) => entry.id !== goalId);
+      const subGoalIds = new Set(goal.subGoals.map((subGoal) => subGoal.id));
+      state.allocations = state.allocations.filter((allocation) => !subGoalIds.has(allocation.subGoalId));
+      renderApp();
+      return;
+    }
+
+    if (action === "add-subgoal") {
+      goal.subGoals.push({
+        id: makeId("sg"),
+        name: `Sub-goal ${goal.subGoals.length + 1}`,
+        target: 1000,
+      });
+      renderApp();
+      return;
+    }
+
+    const subGoalRow = target.closest("tr[data-subgoal-id]");
+    const subGoalId = subGoalRow?.getAttribute("data-subgoal-id");
+    if (!subGoalId) return;
+
+    if (action === "remove-subgoal") {
+      goal.subGoals = goal.subGoals.filter((subGoal) => subGoal.id !== subGoalId);
+      state.allocations = state.allocations.filter((allocation) => allocation.subGoalId !== subGoalId);
+      renderApp();
+      return;
+    }
+
+    if (action === "fill-subgoal") {
+      const subGoalSelect = document.getElementById("allocationSubgoal");
+      const amountInput = document.getElementById("allocationAmount");
+
+      if (subGoalSelect) subGoalSelect.value = subGoalId;
+      if (amountInput) amountInput.focus();
+    }
   });
-}
 
-function renderDashboard(state) {
-  const asOfDate = document.getElementById("asOfDate");
-  if (asOfDate) {
-    asOfDate.textContent = `As of ${formatAsOf(state.seed.asOf)}`;
-  }
+  allocationForm?.addEventListener("submit", (event) => {
+    event.preventDefault();
 
-  const derived = buildDerivedState(state);
+    const accountSelect = document.getElementById("allocationAccount");
+    const subGoalSelect = document.getElementById("allocationSubgoal");
+    const amountInput = document.getElementById("allocationAmount");
 
-  renderKpis(derived.kpis);
-  renderLineChart("balanceTrend", derived.trendLabels, derived.balanceTrend, { color: "#59b7ff" });
-  renderLineChart("goalsTrend", derived.trendLabels, derived.goalsTrend, { color: "#30f5d0" });
-  renderGoals(state.goals);
-  renderInsights(state, derived);
+    if (!(accountSelect instanceof HTMLSelectElement)) return;
+    if (!(subGoalSelect instanceof HTMLSelectElement)) return;
+    if (!(amountInput instanceof HTMLInputElement)) return;
+
+    assignFunds(accountSelect.value, subGoalSelect.value, amountInput.value);
+    amountInput.value = "";
+  });
+
+  allocationsTbody?.addEventListener("input", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement)) return;
+
+    const row = target.closest("tr[data-allocation-id]");
+    const allocationId = row?.getAttribute("data-allocation-id");
+    if (!allocationId) return;
+
+    const allocation = state.allocations.find((entry) => entry.id === allocationId);
+    if (!allocation) return;
+
+    allocation.amount = normalizeAmount(target.value);
+    renderApp();
+  });
+
+  allocationsTbody?.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLButtonElement)) return;
+
+    if (target.getAttribute("data-action") !== "remove-allocation") return;
+
+    const row = target.closest("tr[data-allocation-id]");
+    const allocationId = row?.getAttribute("data-allocation-id");
+    if (!allocationId) return;
+
+    state.allocations = state.allocations.filter((allocation) => allocation.id !== allocationId);
+    renderApp();
+  });
 }
 
 function bootstrap() {
-  const seed = fetchCombinedFinanceData();
-  const state = {
-    seed,
-    goals: seed.goals.map((goal) => ({ ...goal })),
-    scenario: "base",
-    projectionMonths: 6,
-    monthlyEssentials: seed.monthlyEssentialsBase,
-  };
-
-  const rerender = () => renderDashboard(state);
-  renderDashboard(state);
-  setupBindings(state, rerender);
+  renderApp();
+  wireEvents();
 }
 
 bootstrap();
