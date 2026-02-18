@@ -4,11 +4,21 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#edf3ea" />
+  <meta name="description" content="Gary & Catherine's joint budget planner — track accounts and savings goals together." />
+
+  <!-- PWA / iOS home screen -->
+  <link rel="manifest" href="./manifest.json" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="GC Finance" />
+  <link rel="apple-touch-icon" href="./favicon.svg" />
+
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
-  <title>GC Joint Budget</title>
+  <title>GC Finance</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
@@ -17,13 +27,14 @@
   <div class="page-shell">
     <header class="hero panel">
       <div>
-        <p class="eyebrow">Joint Budget Planner</p>
-        <h1>Allocate separate accounts into shared life goals</h1>
-        <p class="lead">Edit account balances, break big goals into sub-goals, and assign each pound to a specific purpose and source account.</p>
+        <p class="eyebrow">GC Finance &mdash; Joint Budget Planner</p>
+        <h1>Gary &amp; Catherine's shared savings tracker</h1>
+        <p class="lead">Track separate accounts, set balances, and allocate every pound towards your shared goals — house, holiday, and beyond.</p>
       </div>
       <div class="hero-meta">
         <p class="meta-label">Last updated</p>
         <p id="asOfDate" class="meta-value">Today</p>
+        <button id="resetDataBtn" class="btn btn-danger-soft" type="button" title="Reset all data to defaults">Reset data</button>
       </div>
     </header>
 
@@ -71,13 +82,14 @@
             <h2 id="accountsHeading">Accounts</h2>
             <button id="addAccountBtn" class="btn btn-secondary" type="button">Add account</button>
           </div>
-          <p class="block-note">Track each person’s account separately, then combine for planning.</p>
+          <p class="block-note">Track each person's account separately, then combine for planning.</p>
 
           <div class="table-wrap">
             <table>
               <thead>
                 <tr>
                   <th>Account</th>
+                  <th>Provider</th>
                   <th>Owner</th>
                   <th>Balance</th>
                   <th>Assigned</th>
@@ -145,6 +157,18 @@
       </section>
     </div>
   </div>
+
+  <!-- Confirm reset dialog -->
+  <dialog id="resetDialog" class="confirm-dialog">
+    <div class="confirm-dialog-inner">
+      <h3>Reset all data?</h3>
+      <p>This will remove all your accounts, goals, and allocations and restore the example data. This cannot be undone.</p>
+      <div class="confirm-dialog-actions">
+        <button id="resetCancelBtn" class="btn btn-secondary" type="button">Cancel</button>
+        <button id="resetConfirmBtn" class="btn btn-danger" type="button">Yes, reset</button>
+      </div>
+    </div>
+  </dialog>
 
   <script src="./app.js"></script>
 </body>

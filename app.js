@@ -4,40 +4,77 @@ const GBP = new Intl.NumberFormat("en-GB", {
   maximumFractionDigits: 0,
 });
 
-const INITIAL_DATA = {
+const STORAGE_KEY = "gcfinance-v1";
+
+const OWNERS = ["Gary", "Catherine", "Joint"];
+
+const DEFAULT_DATA = {
   accounts: [
-    { id: "acct-alex-main", name: "Main Current", owner: "Alex", balance: 4200 },
-    { id: "acct-jordan-save", name: "Savings Pot", owner: "Jordan", balance: 6800 },
-    { id: "acct-joint-isa", name: "Joint Goal Saver", owner: "Joint", balance: 11800 },
+    { id: "acct-gary-current", name: "Current Account", provider: "Monzo", owner: "Gary", balance: 0 },
+    { id: "acct-gary-savings", name: "Savings", provider: "Monzo", owner: "Gary", balance: 0 },
+    { id: "acct-cat-current", name: "Current Account", provider: "Barclays", owner: "Catherine", balance: 0 },
+    { id: "acct-cat-savings", name: "Savings", provider: "Barclays", owner: "Catherine", balance: 0 },
+    { id: "acct-joint-isa", name: "Joint ISA", provider: "Nationwide", owner: "Joint", balance: 0 },
   ],
   goals: [
     {
       id: "goal-house",
-      name: "House",
+      name: "House Purchase",
       subGoals: [
-        { id: "sg-house-deposit", name: "Deposit", target: 45000 },
-        { id: "sg-house-solicitor", name: "Solicitor Fees", target: 3500 },
-        { id: "sg-house-moving", name: "Moving Costs", target: 2800 },
+        { id: "sg-house-deposit", name: "Deposit", target: 40000 },
+        { id: "sg-house-solicitor", name: "Solicitor Fees", target: 3000 },
+        { id: "sg-house-survey", name: "Survey", target: 800 },
+        { id: "sg-house-moving", name: "Moving Costs", target: 1500 },
       ],
     },
     {
-      id: "goal-safety",
-      name: "Emergency Buffer",
+      id: "goal-holiday",
+      name: "Holiday",
       subGoals: [
-        { id: "sg-safety-income", name: "6-Month Income Cover", target: 12000 },
-        { id: "sg-safety-home", name: "Home Repair Buffer", target: 2000 },
+        { id: "sg-holiday-flights", name: "Flights", target: 1200 },
+        { id: "sg-holiday-accom", name: "Accommodation", target: 1500 },
+        { id: "sg-holiday-spending", name: "Spending Money", target: 800 },
+      ],
+    },
+    {
+      id: "goal-emergency",
+      name: "Emergency Fund",
+      subGoals: [
+        { id: "sg-emergency-buffer", name: "6-Month Buffer", target: 10000 },
       ],
     },
   ],
-  allocations: [
-    { id: "alloc-1", accountId: "acct-joint-isa", subGoalId: "sg-house-deposit", amount: 9400 },
-    { id: "alloc-2", accountId: "acct-jordan-save", subGoalId: "sg-house-solicitor", amount: 1200 },
-    { id: "alloc-3", accountId: "acct-alex-main", subGoalId: "sg-house-moving", amount: 600 },
-    { id: "alloc-4", accountId: "acct-joint-isa", subGoalId: "sg-safety-income", amount: 1800 },
-  ],
+  allocations: [],
 };
 
-let state = structuredClone(INITIAL_DATA);
+// ── State ──────────────────────────────────────────────────────────────────────
+
+function loadState() {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (parsed && Array.isArray(parsed.accounts) && Array.isArray(parsed.goals) && Array.isArray(parsed.allocations)) {
+        return parsed;
+      }
+    }
+  } catch {
+    // ignore corrupt storage
+  }
+  return structuredClone(DEFAULT_DATA);
+}
+
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // ignore storage errors (private mode etc.)
+  }
+}
+
+let state = loadState();
+
+// ── Utilities ──────────────────────────────────────────────────────────────────
 
 function makeId(prefix) {
   return `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
@@ -80,6 +117,14 @@ function flattenSubGoals(goals) {
   return list;
 }
 
+function ownerSelectHtml(selected, label) {
+  return `<select data-field="owner" aria-label="${label || "Account owner"}">${OWNERS.map(
+    (o) => `<option value="${o}"${o === selected ? " selected" : ""}>${escapeHtml(o)}</option>`,
+  ).join("")}</select>`;
+}
+
+// ── Sanitise & derive ──────────────────────────────────────────────────────────
+
 function sanitizeState() {
   const accountIds = new Set();
   state.accounts = state.accounts.map((account, idx) => {
@@ -87,7 +132,8 @@ function sanitizeState() {
       ...account,
       id: account.id || makeId("acct"),
       name: String(account.name || `Account ${idx + 1}`).trim() || `Account ${idx + 1}`,
-      owner: String(account.owner || "Joint").trim() || "Joint",
+      provider: String(account.provider || "").trim(),
+      owner: OWNERS.includes(account.owner) ? account.owner : "Joint",
       balance: normalizeAmount(account.balance),
     };
     accountIds.add(next.id);
@@ -144,11 +190,7 @@ function deriveState() {
   const accountsDerived = state.accounts.map((account) => {
     const assigned = accountAssigned.get(account.id) || 0;
     const available = account.balance - assigned;
-    return {
-      ...account,
-      assigned,
-      available,
-    };
+    return { ...account, assigned, available };
   });
 
   const goalsDerived = state.goals.map((goal) => {
@@ -156,14 +198,7 @@ function deriveState() {
     const assigned = goal.subGoals.reduce((sum, subGoal) => sum + (subGoalAssigned.get(subGoal.id) || 0), 0);
     const remaining = Math.max(0, target - assigned);
     const progress = target ? Math.min(100, Math.round((assigned / target) * 100)) : 0;
-
-    return {
-      ...goal,
-      target,
-      assigned,
-      remaining,
-      progress,
-    };
+    return { ...goal, target, assigned, remaining, progress };
   });
 
   const subGoalsDerived = subGoals.map((subGoal) => {
@@ -171,14 +206,7 @@ function deriveState() {
     const target = normalizeAmount(subGoal.target);
     const remaining = Math.max(0, target - assigned);
     const progress = target ? Math.min(100, Math.round((assigned / target) * 100)) : 0;
-
-    return {
-      ...subGoal,
-      target,
-      assigned,
-      remaining,
-      progress,
-    };
+    return { ...subGoal, target, assigned, remaining, progress };
   });
 
   const totalFunds = accountsDerived.reduce((sum, account) => sum + account.balance, 0);
@@ -201,10 +229,11 @@ function deriveState() {
   };
 }
 
+// ── Render ─────────────────────────────────────────────────────────────────────
+
 function setAllocatorMessage(text, type = "success") {
   const message = document.getElementById("allocatorMessage");
   if (!message) return;
-
   message.textContent = text;
   message.className = `allocator-message ${type}`;
 }
@@ -223,14 +252,10 @@ function renderSummary(derived) {
   setText("overallProgressValue", `${derived.overallProgress}%`);
 
   const meter = document.getElementById("overallProgressBar");
-  if (meter) {
-    meter.style.width = `${derived.overallProgress}%`;
-  }
+  if (meter) meter.style.width = `${derived.overallProgress}%`;
 
   const ready = document.getElementById("readyToAssignValue");
-  if (ready) {
-    ready.classList.toggle("negative", derived.readyToAssign < 0);
-  }
+  if (ready) ready.classList.toggle("negative", derived.readyToAssign < 0);
 }
 
 function renderAccounts(derived) {
@@ -238,18 +263,19 @@ function renderAccounts(derived) {
   if (!tbody) return;
 
   if (!derived.accountsDerived.length) {
-    tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No accounts yet. Add one to start allocating funds.</td></tr>';
+    tbody.innerHTML =
+      '<tr class="empty-row"><td colspan="7">No accounts yet. Add one to start allocating funds.</td></tr>';
     return;
   }
 
   tbody.innerHTML = derived.accountsDerived
     .map((account) => {
       const availableClass = account.available < 0 ? "number negative" : "number";
-
       return `
         <tr data-account-id="${account.id}">
           <td><input data-field="name" value="${escapeHtml(account.name)}" aria-label="Account name" /></td>
-          <td><input data-field="owner" value="${escapeHtml(account.owner)}" aria-label="Account owner" /></td>
+          <td><input data-field="provider" value="${escapeHtml(account.provider || "")}" aria-label="Provider" /></td>
+          <td class="owner-cell">${ownerSelectHtml(account.owner, "Account owner")}</td>
           <td><input data-field="balance" class="number" type="number" min="0" step="50" value="${account.balance}" aria-label="Account balance" /></td>
           <td class="number">${GBP.format(account.assigned)}</td>
           <td class="${availableClass}">${GBP.format(account.available)}</td>
@@ -276,9 +302,7 @@ function renderAllocationForm(derived) {
     ? eligibleAccounts
         .map(
           (account) =>
-            `<option value="${account.id}">${escapeHtml(account.owner)} - ${escapeHtml(account.name)} (${GBP.format(
-              account.available,
-            )} available)</option>`,
+            `<option value="${account.id}">${escapeHtml(account.owner)} – ${escapeHtml(account.name)}${account.provider ? ` (${escapeHtml(account.provider)})` : ""} — ${GBP.format(account.available)} available</option>`,
         )
         .join("")
     : '<option value="">No account has available cash</option>';
@@ -292,9 +316,7 @@ function renderAllocationForm(derived) {
     ? openSubGoals
         .map(
           (subGoal) =>
-            `<option value="${subGoal.id}">${escapeHtml(subGoal.goalName)} -> ${escapeHtml(subGoal.name)} (${GBP.format(
-              subGoal.remaining,
-            )} left)</option>`,
+            `<option value="${subGoal.id}">${escapeHtml(subGoal.goalName)} › ${escapeHtml(subGoal.name)} — ${GBP.format(subGoal.remaining)} left</option>`,
         )
         .join("")
     : '<option value="">All sub-goals are funded</option>';
@@ -309,9 +331,7 @@ function renderAllocationForm(derived) {
   amountInput.disabled = !canAssign;
 
   const submit = form.querySelector('button[type="submit"]');
-  if (submit) {
-    submit.disabled = !canAssign;
-  }
+  if (submit) submit.disabled = !canAssign;
 }
 
 function renderAllocations(derived) {
@@ -319,7 +339,8 @@ function renderAllocations(derived) {
   if (!tbody) return;
 
   if (!state.allocations.length) {
-    tbody.innerHTML = '<tr class="empty-row"><td colspan="4">No allocations yet. Assign money from an account to a sub-goal.</td></tr>';
+    tbody.innerHTML =
+      '<tr class="empty-row"><td colspan="4">No allocations yet. Assign money from an account to a sub-goal.</td></tr>';
     return;
   }
 
@@ -333,8 +354,8 @@ function renderAllocations(derived) {
 
       return `
         <tr data-allocation-id="${allocation.id}">
-          <td>${escapeHtml(account.owner)} - ${escapeHtml(account.name)}</td>
-          <td>${escapeHtml(subGoal.goalName)} -> ${escapeHtml(subGoal.name)}</td>
+          <td>${escapeHtml(account.owner)} – ${escapeHtml(account.name)}</td>
+          <td>${escapeHtml(subGoal.goalName)} › ${escapeHtml(subGoal.name)}</td>
           <td><input class="number" type="number" min="0" step="50" value="${normalizeAmount(
             allocation.amount,
           )}" data-field="amount" aria-label="Allocation amount" /></td>
@@ -396,7 +417,7 @@ function renderGoals(derived) {
             <span class="goal-chip">Target ${GBP.format(goal.target)}</span>
             <span class="goal-chip">Assigned ${GBP.format(goal.assigned)}</span>
             <span class="goal-chip">Remaining ${GBP.format(goal.remaining)}</span>
-            <span class="goal-chip">Funded ${goal.progress}%</span>
+            <span class="goal-chip funded-chip" data-progress="${goal.progress}">Funded ${goal.progress}%</span>
           </div>
 
           <div class="table-wrap">
@@ -432,7 +453,10 @@ function renderApp() {
   renderGoals(derived);
   renderAllocationForm(derived);
   renderAllocations(derived);
+  saveState();
 }
+
+// ── Allocation helpers ─────────────────────────────────────────────────────────
 
 function addOrUpdateAllocation(accountId, subGoalId, amountToAdd) {
   const amount = normalizeAmount(amountToAdd);
@@ -447,12 +471,7 @@ function addOrUpdateAllocation(accountId, subGoalId, amountToAdd) {
     return;
   }
 
-  state.allocations.push({
-    id: makeId("alloc"),
-    accountId,
-    subGoalId,
-    amount,
-  });
+  state.allocations.push({ id: makeId("alloc"), accountId, subGoalId, amount });
 }
 
 function assignFunds(accountId, subGoalId, requestedAmount) {
@@ -490,7 +509,7 @@ function assignFunds(accountId, subGoalId, requestedAmount) {
     return;
   }
 
-  setAllocatorMessage(`Assigned ${GBP.format(applied)} to ${subGoal.goalName} -> ${subGoal.name}.`, "success");
+  setAllocatorMessage(`Assigned ${GBP.format(applied)} to ${subGoal.goalName} › ${subGoal.name}.`, "success");
 }
 
 function autoAssignReadyCash() {
@@ -540,6 +559,8 @@ function autoAssignReadyCash() {
   setAllocatorMessage(`Auto-assigned ${GBP.format(assignedTotal)} across open sub-goals.`, "success");
 }
 
+// ── Wire events ────────────────────────────────────────────────────────────────
+
 function wireEvents() {
   const accountsTbody = document.getElementById("accountsTbody");
   const goalsBoard = document.getElementById("goalBoard");
@@ -548,37 +569,61 @@ function wireEvents() {
   const addAccountBtn = document.getElementById("addAccountBtn");
   const addGoalBtn = document.getElementById("addGoalBtn");
   const autoAssignBtn = document.getElementById("autoAssignBtn");
+  const resetDataBtn = document.getElementById("resetDataBtn");
+  const resetDialog = document.getElementById("resetDialog");
+  const resetCancelBtn = document.getElementById("resetCancelBtn");
+  const resetConfirmBtn = document.getElementById("resetConfirmBtn");
 
+  // ── Add account
   addAccountBtn?.addEventListener("click", () => {
     state.accounts.push({
       id: makeId("acct"),
       name: "New Account",
+      provider: "",
       owner: "Joint",
       balance: 0,
     });
     renderApp();
   });
 
+  // ── Add goal
   addGoalBtn?.addEventListener("click", () => {
     state.goals.push({
       id: makeId("goal"),
       name: "New Goal",
-      subGoals: [
-        {
-          id: makeId("sg"),
-          name: "Sub-goal 1",
-          target: 1000,
-        },
-      ],
+      subGoals: [{ id: makeId("sg"), name: "Sub-goal 1", target: 1000 }],
     });
     renderApp();
   });
 
+  // ── Auto-assign
   autoAssignBtn?.addEventListener("click", autoAssignReadyCash);
 
+  // ── Reset dialog
+  resetDataBtn?.addEventListener("click", () => {
+    resetDialog?.showModal();
+  });
+
+  resetCancelBtn?.addEventListener("click", () => {
+    resetDialog?.close();
+  });
+
+  resetConfirmBtn?.addEventListener("click", () => {
+    state = structuredClone(DEFAULT_DATA);
+    saveState();
+    renderApp();
+    resetDialog?.close();
+    setAllocatorMessage("Data has been reset to defaults.", "success");
+  });
+
+  resetDialog?.addEventListener("click", (event) => {
+    if (event.target === resetDialog) resetDialog.close();
+  });
+
+  // ── Accounts table — input changes (name, provider, owner, balance)
   accountsTbody?.addEventListener("input", (event) => {
     const target = event.target;
-    if (!(target instanceof HTMLInputElement)) return;
+    if (!(target instanceof HTMLInputElement) && !(target instanceof HTMLSelectElement)) return;
 
     const row = target.closest("tr[data-account-id]");
     if (!row) return;
@@ -599,10 +644,10 @@ function wireEvents() {
     renderApp();
   });
 
+  // ── Accounts table — remove
   accountsTbody?.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLButtonElement)) return;
-
     if (target.getAttribute("data-action") !== "remove-account") return;
 
     const row = target.closest("tr[data-account-id]");
@@ -614,6 +659,7 @@ function wireEvents() {
     renderApp();
   });
 
+  // ── Goals board — input changes
   goalsBoard?.addEventListener("input", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLInputElement)) return;
@@ -641,17 +687,13 @@ function wireEvents() {
     const subGoal = goal.subGoals.find((entry) => entry.id === subGoalId);
     if (!subGoal) return;
 
-    if (field === "subgoal-target") {
-      subGoal.target = normalizeAmount(target.value);
-    }
-
-    if (field === "subgoal-name") {
-      subGoal.name = target.value;
-    }
+    if (field === "subgoal-target") subGoal.target = normalizeAmount(target.value);
+    if (field === "subgoal-name") subGoal.name = target.value;
 
     renderApp();
   });
 
+  // ── Goals board — button clicks
   goalsBoard?.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLButtonElement)) return;
@@ -697,12 +739,12 @@ function wireEvents() {
     if (action === "fill-subgoal") {
       const subGoalSelect = document.getElementById("allocationSubgoal");
       const amountInput = document.getElementById("allocationAmount");
-
       if (subGoalSelect) subGoalSelect.value = subGoalId;
       if (amountInput) amountInput.focus();
     }
   });
 
+  // ── Allocation form — submit
   allocationForm?.addEventListener("submit", (event) => {
     event.preventDefault();
 
@@ -718,6 +760,7 @@ function wireEvents() {
     amountInput.value = "";
   });
 
+  // ── Allocation ledger — edit amount
   allocationsTbody?.addEventListener("input", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLInputElement)) return;
@@ -733,10 +776,10 @@ function wireEvents() {
     renderApp();
   });
 
+  // ── Allocation ledger — remove
   allocationsTbody?.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLButtonElement)) return;
-
     if (target.getAttribute("data-action") !== "remove-allocation") return;
 
     const row = target.closest("tr[data-allocation-id]");
@@ -747,6 +790,8 @@ function wireEvents() {
     renderApp();
   });
 }
+
+// ── Boot ───────────────────────────────────────────────────────────────────────
 
 function bootstrap() {
   renderApp();

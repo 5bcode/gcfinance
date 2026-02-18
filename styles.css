@@ -62,6 +62,8 @@ body {
   gap: 16px;
 }
 
+/* ── Panels ── */
+
 .panel {
   background: var(--surface);
   border: 1px solid var(--line);
@@ -70,6 +72,8 @@ body {
   backdrop-filter: blur(6px);
 }
 
+/* ── Hero ── */
+
 .hero {
   padding: 24px;
   display: flex;
@@ -77,6 +81,7 @@ body {
   align-items: flex-start;
   gap: 16px;
   overflow: hidden;
+  position: relative;
 }
 
 .hero::after {
@@ -119,6 +124,9 @@ h1 {
   border-radius: var(--radius-soft);
   background: rgba(243, 248, 240, 0.92);
   padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .meta-label {
@@ -134,6 +142,8 @@ h1 {
   font-weight: 700;
   color: #21382f;
 }
+
+/* ── Summary grid ── */
 
 .summary-grid {
   display: grid;
@@ -204,6 +214,8 @@ h1 {
   transition: width 220ms ease;
 }
 
+/* ── Workspace grid ── */
+
 .workspace-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.32fr);
@@ -239,6 +251,8 @@ h1 {
   font-size: 0.84rem;
 }
 
+/* ── Buttons ── */
+
 .btn {
   border: 1px solid transparent;
   border-radius: 999px;
@@ -273,7 +287,41 @@ h1 {
   background: #f0f5ea;
 }
 
-.btn-danger,
+.btn-danger {
+  border-color: #c0392b;
+  background: linear-gradient(145deg, #e74c3c, #c0392b);
+  color: #fff5f3;
+}
+
+.btn-danger:hover {
+  filter: brightness(1.06);
+}
+
+.btn-danger-soft {
+  border: 1px solid #d7b4ab;
+  background: #fff5f1;
+  color: #7a3124;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  margin-top: 8px;
+  padding: 6px 12px;
+}
+
+.btn-danger-soft:hover {
+  background: #ffece6;
+  border-color: #c07868;
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* ── Row remove & action ghost ── */
+
+.btn-danger-row,
 .row-remove {
   border: 1px solid #d7b4ab;
   border-radius: 10px;
@@ -290,14 +338,17 @@ h1 {
   background: #ffece6;
 }
 
+/* ── Tables ── */
+
 .table-wrap {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 620px;
+  min-width: 580px;
 }
 
 th,
@@ -319,6 +370,8 @@ th {
   font-size: 0.68rem;
 }
 
+/* ── Inputs & Selects ── */
+
 input,
 select {
   width: 100%;
@@ -330,6 +383,7 @@ select {
   font-family: var(--font-body);
   font-size: 0.84rem;
   padding: 7px 9px;
+  appearance: auto;
 }
 
 input:hover,
@@ -344,6 +398,13 @@ button:focus {
   outline-offset: 1px;
 }
 
+/* Owner cell select — compact inside table */
+.owner-cell select {
+  min-width: 120px;
+}
+
+/* ── Number cells ── */
+
 .number {
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -354,6 +415,8 @@ button:focus {
   font-weight: 700;
 }
 
+/* ── Utility ── */
+
 .muted {
   color: var(--muted);
 }
@@ -363,6 +426,8 @@ button:focus {
   text-align: center;
   padding: 15px 8px;
 }
+
+/* ── Allocator form ── */
 
 .allocator-form {
   display: grid;
@@ -390,6 +455,8 @@ button:focus {
 .allocator-message.warn {
   color: #8a3e2f;
 }
+
+/* ── Goals panel ── */
 
 .goals-panel {
   min-height: 100%;
@@ -423,6 +490,8 @@ button:focus {
   border-radius: 8px;
   background: transparent;
   padding: 4px 6px;
+  flex: 1;
+  min-width: 0;
 }
 
 .goal-metrics {
@@ -441,8 +510,19 @@ button:focus {
   background: #f4f8f1;
 }
 
+.funded-chip[data-progress="100"] {
+  background: #d4f5e7;
+  border-color: #8dcbae;
+  color: #1a6645;
+  font-weight: 700;
+}
+
 .goal-card table {
-  min-width: 520px;
+  min-width: 480px;
+}
+
+.goal-footer {
+  margin-top: 10px;
 }
 
 .subgoal-actions {
@@ -460,15 +540,19 @@ button:focus {
   font-size: 0.74rem;
   font-weight: 600;
   cursor: pointer;
+  font-family: var(--font-body);
 }
 
 .action-ghost:hover {
   border-color: #8fa496;
+  background: #eff5ed;
 }
+
+/* ── Progress bars ── */
 
 .progress-track {
   width: 100%;
-  min-width: 90px;
+  min-width: 80px;
   height: 8px;
   border-radius: 999px;
   background: #deeadf;
@@ -479,7 +563,51 @@ button:focus {
   height: 100%;
   border-radius: inherit;
   background: linear-gradient(90deg, #2e9a78, #cc7f36);
+  transition: width 180ms ease;
 }
+
+/* ── Confirm dialog ── */
+
+.confirm-dialog {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 24px 60px rgba(20, 40, 30, 0.2);
+  padding: 0;
+  background: var(--surface-strong);
+  backdrop-filter: blur(8px);
+  max-width: 400px;
+  width: calc(100vw - 32px);
+}
+
+.confirm-dialog::backdrop {
+  background: rgba(18, 30, 24, 0.45);
+  backdrop-filter: blur(2px);
+}
+
+.confirm-dialog-inner {
+  padding: 24px;
+}
+
+.confirm-dialog-inner h3 {
+  margin: 0 0 10px;
+  font-family: var(--font-display);
+  font-size: 1.18rem;
+}
+
+.confirm-dialog-inner p {
+  margin: 0 0 20px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.confirm-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* ── Animations ── */
 
 @keyframes rise {
   from {
@@ -492,6 +620,8 @@ button:focus {
   }
 }
 
+/* ── Responsive: tablet ── */
+
 @media (max-width: 1240px) {
   .summary-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -501,6 +631,8 @@ button:focus {
     grid-template-columns: 1fr;
   }
 }
+
+/* ── Responsive: mobile ── */
 
 @media (max-width: 760px) {
   .page-shell {
@@ -531,8 +663,18 @@ button:focus {
     align-items: stretch;
   }
 
-  .btn {
+  .block-head .btn {
     width: 100%;
+    text-align: center;
+  }
+
+  .confirm-dialog-actions {
+    flex-direction: column-reverse;
+  }
+
+  .confirm-dialog-actions .btn {
+    width: 100%;
+    text-align: center;
   }
 }
 
@@ -541,6 +683,8 @@ button:focus {
     grid-template-columns: 1fr;
   }
 }
+
+/* ── Accessibility ── */
 
 @media (prefers-reduced-motion: reduce) {
   *,
