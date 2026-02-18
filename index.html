@@ -114,23 +114,28 @@
               <span class="block-head-icon icon-purple" aria-hidden="true">🏦</span>
               <h2 id="accountsHeading">Accounts</h2>
             </div>
-            <button id="addAccountBtn" class="btn btn-secondary" type="button">+ Add account</button>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <button id="acctEditBtn" class="btn btn-ghost" type="button">✏ Edit</button>
+              <button id="addAccountBtn" class="btn btn-secondary" type="button">+ Add account</button>
+            </div>
           </div>
           <p class="block-note">Track each person's account separately, then combine for planning.</p>
 
+          <div id="accountFilterBar" class="account-filter-bar"></div>
+
           <div class="table-wrap">
-            <table>
+            <table id="accountsTable" class="accounts-table" data-edit="false">
               <colgroup>
-                <col style="width:25%">
-                <col style="width:20%">
-                <col style="width:15%">
-                <col style="width:13%">
-                <col style="width:13%">
-                <col style="width:14%">
+                <col style="width:18%">
+                <col style="width:22%">
+                <col style="width:18%">
+                <col style="width:16%">
+                <col style="width:16%">
+                <col style="width:10%">
               </colgroup>
               <thead>
                 <tr>
-                  <th>Account</th>
+                  <th>Owner</th>
                   <th>Provider</th>
                   <th>Balance</th>
                   <th>Assigned</th>
@@ -218,6 +223,105 @@
     </div>
 
   </div>
+
+  <!-- ── Add Account Wizard ── -->
+  <dialog id="addAccountWizard" class="wizard-dialog">
+    <div class="wizard-inner">
+      <div class="wizard-header">
+        <span class="wizard-icon">🏦</span>
+        <div>
+          <h3 class="wizard-title">New account</h3>
+          <p class="wizard-subtitle" id="addAccountStepLabel">Step 1 of 4 — Account name</p>
+        </div>
+        <button type="button" class="wizard-close" id="addAccountCloseBtn" aria-label="Close">✕</button>
+      </div>
+
+      <div class="wizard-progress">
+        <div class="wizard-progress-fill" id="addAccountProgress" style="width:25%"></div>
+      </div>
+
+      <!-- Step 1: Name -->
+      <div class="wizard-step" id="addAcctStep1">
+        <label class="wizard-label" for="newAcctName">What do you call this account?</label>
+        <input id="newAcctName" type="text" class="wizard-input" placeholder="e.g. Current Account, Savings, ISA…" maxlength="60" autocomplete="off" />
+        <p class="wizard-hint">Give it a friendly name you'll recognise at a glance.</p>
+      </div>
+
+      <!-- Step 2: Owner -->
+      <div class="wizard-step" id="addAcctStep2" hidden>
+        <label class="wizard-label">Who owns this account?</label>
+        <div class="wizard-choice-group" id="ownerChoices">
+          <button type="button" class="wizard-choice" data-value="Gary">👤 Gary</button>
+          <button type="button" class="wizard-choice" data-value="Catherine">👤 Catherine</button>
+          <button type="button" class="wizard-choice" data-value="Joint">🤝 Joint</button>
+        </div>
+        <p class="wizard-hint">The account will be sorted into the correct section automatically.</p>
+      </div>
+
+      <!-- Step 3: Provider -->
+      <div class="wizard-step" id="addAcctStep3" hidden>
+        <label class="wizard-label" for="newAcctProvider">Which bank or provider?</label>
+        <input id="newAcctProvider" type="text" class="wizard-input" placeholder="e.g. Monzo, Barclays, Nationwide…" maxlength="60" autocomplete="off" />
+        <p class="wizard-hint">Optional — leave blank if you'd rather add it later.</p>
+      </div>
+
+      <!-- Step 4: Balance -->
+      <div class="wizard-step" id="addAcctStep4" hidden>
+        <label class="wizard-label" for="newAcctBalance">Current balance (£)</label>
+        <input id="newAcctBalance" type="number" class="wizard-input" min="0" step="50" placeholder="e.g. 2500" />
+        <p class="wizard-hint">You can update this at any time from the accounts table.</p>
+      </div>
+
+      <div class="wizard-footer">
+        <button type="button" class="btn btn-secondary" id="addAccountBackBtn">← Back</button>
+        <button type="button" class="btn btn-primary" id="addAccountNextBtn">Next →</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- ── Add Goal Wizard ── -->
+  <dialog id="addGoalWizard" class="wizard-dialog">
+    <div class="wizard-inner">
+      <div class="wizard-header">
+        <span class="wizard-icon">🎯</span>
+        <div>
+          <h3 class="wizard-title">New goal</h3>
+          <p class="wizard-subtitle" id="addGoalStepLabel">Step 1 of 3 — Goal name</p>
+        </div>
+        <button type="button" class="wizard-close" id="addGoalCloseBtn" aria-label="Close">✕</button>
+      </div>
+
+      <div class="wizard-progress">
+        <div class="wizard-progress-fill" id="addGoalProgress" style="width:33%"></div>
+      </div>
+
+      <!-- Step 1: Goal name -->
+      <div class="wizard-step" id="addGoalStep1">
+        <label class="wizard-label" for="newGoalName">What is this goal called?</label>
+        <input id="newGoalName" type="text" class="wizard-input" placeholder="e.g. House Purchase, Holiday, Emergency Fund…" maxlength="80" autocomplete="off" />
+        <p class="wizard-hint">A clear name helps you stay motivated.</p>
+      </div>
+
+      <!-- Step 2: First sub-goal name -->
+      <div class="wizard-step" id="addGoalStep2" hidden>
+        <label class="wizard-label" for="newSubGoalName">Name your first sub-goal</label>
+        <input id="newSubGoalName" type="text" class="wizard-input" placeholder="e.g. Deposit, Flights, 6-Month Buffer…" maxlength="80" autocomplete="off" />
+        <p class="wizard-hint">Every goal needs at least one sub-goal to track progress against.</p>
+      </div>
+
+      <!-- Step 3: First sub-goal target -->
+      <div class="wizard-step" id="addGoalStep3" hidden>
+        <label class="wizard-label" for="newSubGoalTarget">Target amount for "<span id="newSubGoalNamePreview"></span>" (£)</label>
+        <input id="newSubGoalTarget" type="number" class="wizard-input" min="0" step="100" placeholder="e.g. 5000" />
+        <p class="wizard-hint">You can add more sub-goals and adjust targets after creation.</p>
+      </div>
+
+      <div class="wizard-footer">
+        <button type="button" class="btn btn-secondary" id="addGoalBackBtn">← Back</button>
+        <button type="button" class="btn btn-primary" id="addGoalNextBtn">Next →</button>
+      </div>
+    </div>
+  </dialog>
 
   <!-- Confirm reset dialog -->
   <dialog id="resetDialog" class="confirm-dialog">

@@ -606,7 +606,7 @@ h1 .gradient-text {
 }
 
 .block {
-  padding: 32px;
+  padding: 20px 24px;
 }
 
 .block:hover {
@@ -632,10 +632,10 @@ h1 .gradient-text {
 }
 
 .block-note {
-  margin: 0 0 16px;
+  margin: 0 0 10px;
   color: var(--muted);
-  font-size: 0.82rem;
-  line-height: 1.55;
+  font-size: 0.78rem;
+  line-height: 1.5;
 }
 
 /* Section icon badges */
@@ -832,22 +832,21 @@ thead tr {
 }
 
 th {
-  padding: 10px 10px;
-  font-size: 0.62rem;
+  padding: 8px 8px;
+  font-size: 0.6rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   color: var(--muted);
   text-align: left;
   border-bottom: 2px solid var(--glass-border);
   background: rgba(255, 255, 255, 0.02);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: visible;
 }
 
 td {
-  padding: 8px 10px;
+  padding: 7px 8px;
   font-size: 0.85rem;
   border-bottom: 1px solid var(--glass-border);
   vertical-align: middle;
@@ -859,6 +858,9 @@ td input,
 td select {
   min-width: 0;
   width: 100%;
+  min-height: 28px;
+  padding: 4px 8px;
+  font-size: 0.82rem;
 }
 
 td input.number {
@@ -992,6 +994,26 @@ select option {
 /* Remove button cell — compact */
 td:last-child {
   text-align: right;
+}
+
+/* ── Hide empty action column in view mode ──────────────────────────────── */
+
+.accounts-table[data-edit="false"] colgroup col:last-child {
+  width: 0 !important;
+}
+.accounts-table[data-edit="false"] th:last-child {
+  display: none;
+}
+.accounts-table[data-edit="false"] tbody tr:not(.account-group-header) td:last-child {
+  display: none;
+}
+
+/* ── Compact buttons in block headers ────────────────────────────────────── */
+
+.block-head .btn {
+  min-height: 34px;
+  padding: 0 14px;
+  font-size: 0.8rem;
 }
 
 /* ── Number cells ──────────────────────────────────────────────────────── */
@@ -1410,6 +1432,335 @@ td:last-child {
   h1 {
     font-size: 1.6rem;
   }
+}
+
+/* ── Wizard dialog ──────────────────────────────────────────────────────── */
+
+.wizard-dialog {
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg), 0 0 60px rgba(124, 58, 237, 0.15);
+  padding: 0;
+  background: var(--bg-2);
+  color: var(--ink);
+  max-width: 480px;
+  width: calc(100vw - 32px);
+  overflow: hidden;
+}
+
+.wizard-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(6px);
+}
+
+.wizard-inner {
+  display: flex;
+  flex-direction: column;
+}
+
+.wizard-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 24px 24px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.wizard-icon {
+  font-size: 1.4rem;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--brand-soft);
+  border: 1px solid var(--brand-glow);
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+
+.wizard-title {
+  margin: 0 0 2px;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.wizard-subtitle {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.wizard-close {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  min-height: 0;
+  padding: 0;
+  font-size: 0.8rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.wizard-close:hover {
+  border-color: var(--danger-border);
+  background: var(--danger-soft);
+  color: #fca5a5;
+}
+
+.wizard-progress {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.05);
+  flex-shrink: 0;
+}
+
+.wizard-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--brand), var(--accent));
+  border-radius: 0 999px 999px 0;
+  transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 0 12px var(--brand-glow);
+}
+
+.wizard-step {
+  padding: 28px 24px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 180px;
+}
+
+.wizard-step[hidden] {
+  display: none;
+}
+
+.wizard-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--muted);
+}
+
+.wizard-input {
+  width: 100%;
+  min-height: 48px;
+  font-size: 1rem;
+  font-weight: 500;
+  padding: 10px 14px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink);
+  font-family: var(--font-body);
+  transition: all 0.2s ease;
+  appearance: none;
+}
+
+.wizard-input:focus {
+  outline: none;
+  border-color: var(--brand-light);
+  background: rgba(255, 255, 255, 0.07);
+  box-shadow: 0 0 0 3px var(--brand-glow);
+}
+
+.wizard-input.error {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.2);
+}
+
+.wizard-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.wizard-choice-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.wizard-choice {
+  width: 100%;
+  padding: 14px 18px;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  color: var(--ink-dim);
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  min-height: 0;
+}
+
+.wizard-choice:hover {
+  background: var(--surface-hover);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--ink);
+  transform: translateX(4px);
+}
+
+.wizard-choice.selected {
+  background: var(--brand-soft);
+  border-color: var(--brand);
+  color: var(--brand-light);
+  font-weight: 600;
+}
+
+.wizard-choice.selected:hover {
+  background: rgba(124, 58, 237, 0.18);
+  transform: translateX(4px);
+}
+
+.wizard-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px 24px;
+  gap: 10px;
+  border-top: 1px solid var(--line);
+  margin-top: 8px;
+}
+
+.wizard-footer .btn {
+  flex: 1;
+}
+
+/* ── Account filter bar ────────────────────────────────────────────────── */
+
+.account-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.filter-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+  background: var(--surface-strong);
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  min-height: 0;
+}
+
+.filter-pill:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--ink);
+  background: var(--surface-hover);
+}
+
+.filter-pill.active {
+  background: var(--brand-soft);
+  border-color: var(--brand);
+  color: var(--brand-light);
+}
+
+.filter-pill--gary.active {
+  background: rgba(124, 58, 237, 0.15);
+  border-color: var(--brand);
+  color: var(--brand-light);
+}
+
+.filter-pill--catherine.active {
+  background: rgba(6, 182, 212, 0.15);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.filter-pill--joint.active {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: var(--success);
+  color: var(--success);
+}
+
+/* ── Account type group label variant ──────────────────────────────────── */
+
+.account-group-label--type {
+  color: var(--ink-dim);
+  background: var(--surface-strong);
+  border-color: var(--line-strong);
+}
+
+/* ── Static owner badge (view mode) ────────────────────────────────────── */
+
+.owner-pill-label {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  border: 1px solid var(--glass-border);
+  background: var(--surface-strong);
+  color: var(--muted);
+  white-space: nowrap;
+  line-height: 1.6;
+}
+
+.owner-pill-label--gary {
+  color: var(--brand-light);
+  border-color: var(--brand-glow);
+  background: var(--brand-soft);
+}
+
+.owner-pill-label--catherine {
+  color: var(--accent);
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+}
+
+.owner-pill-label--joint {
+  color: var(--success);
+  border-color: rgba(16, 185, 129, 0.3);
+  background: var(--success-soft);
+}
+
+/* ── Plain text cell (view mode) ────────────────────────────────────────── */
+
+.acct-text {
+  font-size: 0.85rem;
+  color: var(--ink-dim);
+}
+
+/* ── Owner pill colour variants ─────────────────────────────────────────── */
+
+.owner-pill--gary {
+  color: var(--brand-light) !important;
+  border-color: var(--brand-glow) !important;
+}
+
+.owner-pill--catherine {
+  color: var(--accent) !important;
+  border-color: var(--accent-border) !important;
+}
+
+.owner-pill--joint {
+  color: var(--success) !important;
+  border-color: rgba(16, 185, 129, 0.3) !important;
 }
 
 /* ── Accessibility ──────────────────────────────────────────────────────── */

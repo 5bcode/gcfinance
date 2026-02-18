@@ -74,6 +74,10 @@ function saveState() {
 
 let state = loadState();
 
+// ── UI state (not persisted) ───────────────────────────────────────────────────
+let acctOwnerFilter = new Set(OWNERS); // which owners to show; all active by default
+let acctEditMode = false;              // whether the accounts table is in edit mode
+
 // ── Utilities ──────────────────────────────────────────────────────────────────
 
 function makeId(prefix) {
@@ -258,55 +262,86 @@ function renderSummary(derived) {
   if (ready) ready.classList.toggle("negative", derived.readyToAssign < 0);
 }
 
+// Owner colour tokens used in the table
+const OWNER_COLORS = { Gary: "gary", Catherine: "catherine", Joint: "joint" };
+
 function renderAccounts(derived) {
   const tbody = document.getElementById("accountsTbody");
+  const filterBar = document.getElementById("accountFilterBar");
   if (!tbody) return;
 
+  // ── Sync data-edit attribute on the table ─────────────────────────────────
+  const accountsTable = document.getElementById("accountsTable");
+  if (accountsTable) accountsTable.setAttribute("data-edit", acctEditMode ? "true" : "false");
+
+  // ── Render filter pills ───────────────────────────────────────────────────
+  if (filterBar) {
+    const allActive = OWNERS.every((o) => acctOwnerFilter.has(o));
+    filterBar.innerHTML =
+      `<button type="button" class="filter-pill${allActive ? " active" : ""}" data-filter-owner="all">All</button>` +
+      OWNERS.map((o) => {
+        const active = acctOwnerFilter.has(o);
+        return `<button type="button" class="filter-pill filter-pill--${OWNER_COLORS[o] || "other"}${active ? " active" : ""}" data-filter-owner="${escapeHtml(o)}">${escapeHtml(o)}</button>`;
+      }).join("");
+  }
+
   if (!derived.accountsDerived.length) {
-    tbody.innerHTML =
-      '<tr class="empty-row"><td colspan="6">No accounts yet. Add one to start allocating funds.</td></tr>';
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No accounts yet. Add one to start allocating funds.</td></tr>';
     return;
   }
 
-  // Group accounts by owner in a fixed order
-  const ownerOrder = ["Gary", "Catherine", "Joint"];
-  const grouped = ownerOrder
-    .map((owner) => ({
-      owner,
-      accounts: derived.accountsDerived.filter((a) => a.owner === owner),
-    }))
-    .filter((g) => g.accounts.length > 0);
+  // ── Filter by active owners ───────────────────────────────────────────────
+  const visible = derived.accountsDerived.filter((a) => acctOwnerFilter.has(a.owner));
 
-  // Also catch any accounts with unexpected owner values
-  const knownOwners = new Set(ownerOrder);
-  const others = derived.accountsDerived.filter((a) => !knownOwners.has(a.owner));
-  if (others.length) grouped.push({ owner: "Other", accounts: others });
+  if (!visible.length) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No accounts match the current filter.</td></tr>';
+    return;
+  }
 
-  tbody.innerHTML = grouped
-    .map(({ owner, accounts }) => {
+  // ── Group by account name (type), sorted alphabetically ──────────────────
+  const typeMap = new Map();
+  visible.forEach((account) => {
+    const key = account.name.trim();
+    if (!typeMap.has(key)) typeMap.set(key, []);
+    typeMap.get(key).push(account);
+  });
+
+  const sortedTypes = [...typeMap.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+
+  tbody.innerHTML = sortedTypes
+    .map(([typeName, accounts]) => {
       const groupHeader = `
         <tr class="account-group-header">
-          <td colspan="6"><span class="account-group-label">${escapeHtml(owner)}</span></td>
+          <td colspan="6"><span class="account-group-label account-group-label--type">${escapeHtml(typeName)}</span></td>
         </tr>`;
 
       const rows = accounts
         .map((account) => {
           const availableClass = account.available < 0 ? "number negative" : "number";
+          const ownerKey = OWNER_COLORS[account.owner] || "other";
+
+          const ownerCell = acctEditMode
+            ? `<select data-field="owner" class="owner-pill owner-pill--${ownerKey}" aria-label="Account owner">${OWNERS.map(
+                (o) => `<option value="${o}"${o === account.owner ? " selected" : ""}>${escapeHtml(o)}</option>`
+              ).join("")}</select>`
+            : `<span class="owner-pill-label owner-pill-label--${ownerKey}">${escapeHtml(account.owner)}</span>`;
+
+          const providerCell = acctEditMode
+            ? `<input data-field="provider" value="${escapeHtml(account.provider || "")}" aria-label="Provider" />`
+            : `<span class="acct-text">${escapeHtml(account.provider || "—")}</span>`;
+
+          const removeCell = acctEditMode
+            ? `<button type="button" class="row-remove" data-action="remove-account">Remove</button>`
+            : ``;
+
           return `
             <tr data-account-id="${account.id}">
-              <td>
-                <div class="account-name-cell">
-                  <input data-field="name" value="${escapeHtml(account.name)}" aria-label="Account name" />
-                  <select data-field="owner" class="owner-pill" aria-label="Account owner">${OWNERS.map(
-            (o) => `<option value="${o}"${o === account.owner ? " selected" : ""}>${escapeHtml(o)}</option>`
-          ).join("")}</select>
-                </div>
-              </td>
-              <td><input data-field="provider" value="${escapeHtml(account.provider || "")}" aria-label="Provider" /></td>
+              <td>${ownerCell}</td>
+              <td>${providerCell}</td>
               <td><input data-field="balance" class="number" type="number" min="0" step="50" value="${account.balance}" aria-label="Account balance" /></td>
               <td class="number">${GBP.format(account.assigned)}</td>
               <td class="${availableClass}">${GBP.format(account.available)}</td>
-              <td><button type="button" class="row-remove" data-action="remove-account">Remove</button></td>
+              <td>${removeCell}</td>
             </tr>`;
         })
         .join("");
@@ -455,12 +490,12 @@ function renderGoals(derived) {
           <div class="table-wrap">
             <table>
               <colgroup>
-                <col style="width:30%">
-                <col style="width:14%">
-                <col style="width:14%">
-                <col style="width:14%">
-                <col style="width:16%">
+                <col style="width:26%">
                 <col style="width:12%">
+                <col style="width:13%">
+                <col style="width:12%">
+                <col style="width:15%">
+                <col style="width:22%">
               </colgroup>
               <thead>
                 <tr>
@@ -615,26 +650,276 @@ function wireEvents() {
   const resetCancelBtn = document.getElementById("resetCancelBtn");
   const resetConfirmBtn = document.getElementById("resetConfirmBtn");
 
-  // ── Add account
-  addAccountBtn?.addEventListener("click", () => {
-    state.accounts.push({
-      id: makeId("acct"),
-      name: "New Account",
-      provider: "",
-      owner: "Joint",
-      balance: 0,
+  // ── Add account wizard ────────────────────────────────────────────────────
+
+  const addAccountWizard = document.getElementById("addAccountWizard");
+  const addAccountProgress = document.getElementById("addAccountProgress");
+  const addAccountStepLabel = document.getElementById("addAccountStepLabel");
+  const addAccountNextBtn = document.getElementById("addAccountNextBtn");
+  const addAccountBackBtn = document.getElementById("addAccountBackBtn");
+  const addAccountCloseBtn = document.getElementById("addAccountCloseBtn");
+
+  const acctSteps = [
+    document.getElementById("addAcctStep1"),
+    document.getElementById("addAcctStep2"),
+    document.getElementById("addAcctStep3"),
+    document.getElementById("addAcctStep4"),
+  ];
+
+  const acctStepLabels = [
+    "Step 1 of 4 — Account name",
+    "Step 2 of 4 — Owner",
+    "Step 3 of 4 — Provider",
+    "Step 4 of 4 — Balance",
+  ];
+
+  const acctProgressPct = ["25%", "50%", "75%", "100%"];
+
+  let acctWizardStep = 0;
+  let acctOwnerSelected = "";
+
+  function resetAcctWizard() {
+    acctWizardStep = 0;
+    acctOwnerSelected = "";
+    document.getElementById("newAcctName").value = "";
+    document.getElementById("newAcctProvider").value = "";
+    document.getElementById("newAcctBalance").value = "";
+    document.querySelectorAll("#ownerChoices .wizard-choice").forEach((btn) => btn.classList.remove("selected"));
+    showAcctStep(0);
+  }
+
+  function showAcctStep(step) {
+    acctSteps.forEach((el, i) => {
+      if (el) el.hidden = i !== step;
     });
-    renderApp();
+    if (addAccountStepLabel) addAccountStepLabel.textContent = acctStepLabels[step];
+    if (addAccountProgress) addAccountProgress.style.width = acctProgressPct[step];
+    if (addAccountBackBtn) addAccountBackBtn.style.visibility = step === 0 ? "hidden" : "visible";
+    const isLast = step === acctSteps.length - 1;
+    if (addAccountNextBtn) addAccountNextBtn.textContent = isLast ? "Add account ✓" : "Next →";
+    // Auto-focus the visible input
+    const visibleStep = acctSteps[step];
+    if (visibleStep) {
+      const input = visibleStep.querySelector("input");
+      if (input) setTimeout(() => input.focus(), 60);
+    }
+  }
+
+  addAccountBtn?.addEventListener("click", () => {
+    resetAcctWizard();
+    addAccountWizard?.showModal();
   });
 
-  // ── Add goal
+  addAccountCloseBtn?.addEventListener("click", () => addAccountWizard?.close());
+  addAccountWizard?.addEventListener("click", (e) => { if (e.target === addAccountWizard) addAccountWizard.close(); });
+
+  // Owner choice tiles
+  document.getElementById("ownerChoices")?.addEventListener("click", (e) => {
+    const btn = e.target.closest(".wizard-choice");
+    if (!btn) return;
+    document.querySelectorAll("#ownerChoices .wizard-choice").forEach((b) => b.classList.remove("selected"));
+    btn.classList.add("selected");
+    acctOwnerSelected = btn.getAttribute("data-value") || "";
+  });
+
+  addAccountBackBtn?.addEventListener("click", () => {
+    if (acctWizardStep > 0) {
+      acctWizardStep--;
+      showAcctStep(acctWizardStep);
+    }
+  });
+
+  addAccountNextBtn?.addEventListener("click", () => {
+    const nameInput = document.getElementById("newAcctName");
+
+    // Validate current step
+    if (acctWizardStep === 0) {
+      if (!nameInput?.value.trim()) {
+        nameInput?.classList.add("error");
+        nameInput?.focus();
+        return;
+      }
+      nameInput?.classList.remove("error");
+    }
+
+    if (acctWizardStep === 1) {
+      if (!acctOwnerSelected) {
+        // Highlight choices area to nudge the user
+        document.getElementById("ownerChoices")?.querySelectorAll(".wizard-choice").forEach((b) => {
+          b.style.borderColor = "var(--danger)";
+          setTimeout(() => b.style.borderColor = "", 800);
+        });
+        return;
+      }
+    }
+
+    if (acctWizardStep < acctSteps.length - 1) {
+      acctWizardStep++;
+      showAcctStep(acctWizardStep);
+      return;
+    }
+
+    // Final step — commit
+    const name = nameInput?.value.trim() || "New Account";
+    const owner = acctOwnerSelected || "Joint";
+    const provider = (document.getElementById("newAcctProvider")?.value || "").trim();
+    const balance = normalizeAmount(document.getElementById("newAcctBalance")?.value || 0);
+
+    state.accounts.push({ id: makeId("acct"), name, provider, owner, balance });
+    renderApp();
+    addAccountWizard?.close();
+  });
+
+  // Allow Enter to advance the wizard on text/number steps
+  addAccountWizard?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && acctWizardStep !== 1) {
+      e.preventDefault();
+      addAccountNextBtn?.click();
+    }
+  });
+
+  // ── Add goal wizard ────────────────────────────────────────────────────────
+
+  const addGoalWizard = document.getElementById("addGoalWizard");
+  const addGoalProgress = document.getElementById("addGoalProgress");
+  const addGoalStepLabel = document.getElementById("addGoalStepLabel");
+  const addGoalNextBtn = document.getElementById("addGoalNextBtn");
+  const addGoalBackBtn = document.getElementById("addGoalBackBtn");
+  const addGoalCloseBtn = document.getElementById("addGoalCloseBtn");
+
+  const goalSteps = [
+    document.getElementById("addGoalStep1"),
+    document.getElementById("addGoalStep2"),
+    document.getElementById("addGoalStep3"),
+  ];
+
+  const goalStepLabels = [
+    "Step 1 of 3 — Goal name",
+    "Step 2 of 3 — First sub-goal",
+    "Step 3 of 3 — Target amount",
+  ];
+
+  const goalProgressPct = ["33%", "66%", "100%"];
+
+  let goalWizardStep = 0;
+
+  function resetGoalWizard() {
+    goalWizardStep = 0;
+    document.getElementById("newGoalName").value = "";
+    document.getElementById("newSubGoalName").value = "";
+    document.getElementById("newSubGoalTarget").value = "";
+    showGoalStep(0);
+  }
+
+  function showGoalStep(step) {
+    goalSteps.forEach((el, i) => {
+      if (el) el.hidden = i !== step;
+    });
+    if (addGoalStepLabel) addGoalStepLabel.textContent = goalStepLabels[step];
+    if (addGoalProgress) addGoalProgress.style.width = goalProgressPct[step];
+    if (addGoalBackBtn) addGoalBackBtn.style.visibility = step === 0 ? "hidden" : "visible";
+    const isLast = step === goalSteps.length - 1;
+    if (addGoalNextBtn) addGoalNextBtn.textContent = isLast ? "Create goal ✓" : "Next →";
+    const visibleStep = goalSteps[step];
+    if (visibleStep) {
+      const input = visibleStep.querySelector("input");
+      if (input) setTimeout(() => input.focus(), 60);
+    }
+  }
+
   addGoalBtn?.addEventListener("click", () => {
+    resetGoalWizard();
+    addGoalWizard?.showModal();
+  });
+
+  addGoalCloseBtn?.addEventListener("click", () => addGoalWizard?.close());
+  addGoalWizard?.addEventListener("click", (e) => { if (e.target === addGoalWizard) addGoalWizard.close(); });
+
+  addGoalBackBtn?.addEventListener("click", () => {
+    if (goalWizardStep > 0) {
+      goalWizardStep--;
+      showGoalStep(goalWizardStep);
+    }
+  });
+
+  addGoalNextBtn?.addEventListener("click", () => {
+    const goalNameInput = document.getElementById("newGoalName");
+    const subGoalNameInput = document.getElementById("newSubGoalName");
+    const subGoalTargetInput = document.getElementById("newSubGoalTarget");
+    const preview = document.getElementById("newSubGoalNamePreview");
+
+    if (goalWizardStep === 0) {
+      if (!goalNameInput?.value.trim()) {
+        goalNameInput?.classList.add("error");
+        goalNameInput?.focus();
+        return;
+      }
+      goalNameInput?.classList.remove("error");
+    }
+
+    if (goalWizardStep === 1) {
+      if (!subGoalNameInput?.value.trim()) {
+        subGoalNameInput?.classList.add("error");
+        subGoalNameInput?.focus();
+        return;
+      }
+      subGoalNameInput?.classList.remove("error");
+      // Update the label preview on step 3
+      if (preview) preview.textContent = subGoalNameInput.value.trim();
+    }
+
+    if (goalWizardStep < goalSteps.length - 1) {
+      goalWizardStep++;
+      showGoalStep(goalWizardStep);
+      return;
+    }
+
+    // Final — commit
+    const goalName = goalNameInput?.value.trim() || "New Goal";
+    const subGoalName = subGoalNameInput?.value.trim() || "Sub-goal 1";
+    const target = normalizeAmount(subGoalTargetInput?.value || 1000) || 1000;
+
     state.goals.push({
       id: makeId("goal"),
-      name: "New Goal",
-      subGoals: [{ id: makeId("sg"), name: "Sub-goal 1", target: 1000 }],
+      name: goalName,
+      subGoals: [{ id: makeId("sg"), name: subGoalName, target }],
     });
     renderApp();
+    addGoalWizard?.close();
+  });
+
+  addGoalWizard?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addGoalNextBtn?.click();
+    }
+  });
+
+  // ── Account edit toggle
+  document.getElementById("acctEditBtn")?.addEventListener("click", () => {
+    acctEditMode = !acctEditMode;
+    const btn = document.getElementById("acctEditBtn");
+    if (btn) btn.textContent = acctEditMode ? "✓ Done" : "✏ Edit";
+    const derived = deriveState();
+    renderAccounts(derived);
+  });
+
+  // ── Account filter bar
+  document.getElementById("accountFilterBar")?.addEventListener("click", (event) => {
+    const btn = event.target.closest("[data-filter-owner]");
+    if (!btn) return;
+    const owner = btn.getAttribute("data-filter-owner");
+    if (owner === "all") {
+      acctOwnerFilter = new Set(OWNERS);
+    } else {
+      if (acctOwnerFilter.has(owner)) {
+        if (acctOwnerFilter.size > 1) acctOwnerFilter.delete(owner);
+      } else {
+        acctOwnerFilter.add(owner);
+      }
+    }
+    const derived = deriveState();
+    renderAccounts(derived);
   });
 
   // ── Auto-assign
