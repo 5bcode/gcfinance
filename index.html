@@ -3,67 +3,79 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#edf3ea" />
-  <meta name="description" content="Gary & Catherine's joint budget planner — track accounts and savings goals together." />
+  <meta name="theme-color" content="#0b0f18" />
+  <meta name="description" content="SavinCGs — Gary & Catherine's joint savings planner. Track accounts and savings goals together." />
 
   <!-- PWA / iOS home screen -->
   <link rel="manifest" href="./manifest.json" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="apple-mobile-web-app-title" content="GC Finance" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="SavinCGs" />
   <link rel="apple-touch-icon" href="./favicon.svg" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
-  <title>GC Finance</title>
+  <title>SavinCGs</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
   <div class="backdrop" aria-hidden="true"></div>
 
   <div class="page-shell">
-    <header class="hero panel">
-      <div>
-        <p class="eyebrow">GC Finance &mdash; Joint Budget Planner</p>
-        <h1>Gary &amp; Catherine's shared savings tracker</h1>
-        <p class="lead">Track separate accounts, set balances, and allocate every pound towards your shared goals — house, holiday, and beyond.</p>
+
+    <!-- ── Top nav ── -->
+    <nav class="top-nav" aria-label="Site navigation">
+      <a class="brand" href="#" aria-label="SavinCGs home">
+        <div class="brand-logo" aria-hidden="true">S</div>
+        <span class="brand-wordmark">Savin<span>CGs</span></span>
+      </a>
+      <span class="nav-badge">Live · Synced</span>
+    </nav>
+
+    <!-- ── Hero ── -->
+    <header class="hero" aria-label="Page header">
+      <div class="hero-text">
+        <p class="eyebrow">✦ Joint Savings Planner</p>
+        <h1>Your money,<br><span class="gradient-text">your goals.</span></h1>
+        <p class="lead">Track Gary &amp; Catherine's separate accounts, set balances, and allocate every pound towards shared goals — house, holiday, and beyond.</p>
       </div>
       <div class="hero-meta">
         <p class="meta-label">Last updated</p>
         <p id="asOfDate" class="meta-value">Today</p>
-        <button id="resetDataBtn" class="btn btn-danger-soft" type="button" title="Reset all data to defaults">Reset data</button>
+        <button id="resetDataBtn" class="btn-danger-soft" type="button" title="Reset all data to defaults">↺ Reset data</button>
       </div>
     </header>
 
+    <!-- ── Summary cards ── -->
     <section class="summary-grid" aria-label="Budget summary">
-      <article class="summary-card panel">
+      <article class="summary-card">
         <p class="summary-label">Total funds</p>
         <p class="summary-value" id="totalFundsValue">£0</p>
-        <p class="summary-note">Across all connected accounts</p>
+        <p class="summary-note">Across all accounts</p>
       </article>
 
-      <article class="summary-card panel highlight">
+      <article class="summary-card highlight">
         <p class="summary-label">Ready to assign</p>
         <p class="summary-value" id="readyToAssignValue">£0</p>
-        <p class="summary-note">Cash not yet allocated to any sub-goal</p>
+        <p class="summary-note">Unallocated cash</p>
       </article>
 
-      <article class="summary-card panel">
+      <article class="summary-card">
         <p class="summary-label">Assigned to goals</p>
         <p class="summary-value" id="totalAssignedValue">£0</p>
-        <p class="summary-note">Money already given jobs</p>
+        <p class="summary-note">Money with jobs</p>
       </article>
 
-      <article class="summary-card panel">
+      <article class="summary-card">
         <p class="summary-label">Underfunded</p>
         <p class="summary-value" id="underFundedValue">£0</p>
-        <p class="summary-note">Target gaps still outstanding</p>
+        <p class="summary-note">Target gaps outstanding</p>
       </article>
 
-      <article class="summary-card panel meter-card">
+      <article class="summary-card meter-card">
         <div class="meter-head">
           <p class="summary-label">Overall funding</p>
           <p id="overallProgressValue" class="meter-value">0%</p>
@@ -71,16 +83,22 @@
         <div class="meter-track" aria-hidden="true">
           <span id="overallProgressBar" class="meter-fill"></span>
         </div>
-        <p class="summary-note">Assigned vs total goal targets</p>
+        <p class="summary-note">Assigned vs total targets</p>
       </article>
     </section>
 
+    <!-- ── Main workspace ── -->
     <div class="workspace-grid">
       <div class="workspace-column">
-        <section class="panel block" aria-labelledby="accountsHeading">
+
+        <!-- Accounts -->
+        <section class="block" aria-labelledby="accountsHeading">
           <div class="block-head">
-            <h2 id="accountsHeading">Accounts</h2>
-            <button id="addAccountBtn" class="btn btn-secondary" type="button">Add account</button>
+            <div class="block-head-left">
+              <span class="block-head-icon icon-purple" aria-hidden="true">🏦</span>
+              <h2 id="accountsHeading">Accounts</h2>
+            </div>
+            <button id="addAccountBtn" class="btn btn-secondary" type="button">+ Add account</button>
           </div>
           <p class="block-note">Track each person's account separately, then combine for planning.</p>
 
@@ -102,10 +120,14 @@
           </div>
         </section>
 
-        <section class="panel block" aria-labelledby="allocatorHeading">
+        <!-- Assign money -->
+        <section class="block" aria-labelledby="allocatorHeading">
           <div class="block-head">
-            <h2 id="allocatorHeading">Assign money</h2>
-            <button id="autoAssignBtn" class="btn btn-secondary" type="button">Auto-assign ready cash</button>
+            <div class="block-head-left">
+              <span class="block-head-icon icon-teal" aria-hidden="true">⚡</span>
+              <h2 id="allocatorHeading">Assign money</h2>
+            </div>
+            <button id="autoAssignBtn" class="btn btn-secondary" type="button">✦ Auto-assign</button>
           </div>
 
           <form id="allocationForm" class="allocator-form">
@@ -115,18 +137,22 @@
             <label for="allocationSubgoal">To sub-goal</label>
             <select id="allocationSubgoal" required></select>
 
-            <label for="allocationAmount">Amount</label>
-            <input id="allocationAmount" type="number" min="0" step="50" required />
+            <label for="allocationAmount">Amount (£)</label>
+            <input id="allocationAmount" type="number" min="0" step="50" placeholder="e.g. 500" required />
 
-            <button class="btn btn-primary" type="submit">Assign funds</button>
+            <button class="btn btn-primary" type="submit">Assign funds →</button>
           </form>
 
           <p id="allocatorMessage" class="allocator-message" aria-live="polite"></p>
         </section>
 
-        <section class="panel block" aria-labelledby="ledgerHeading">
+        <!-- Allocation ledger -->
+        <section class="block" aria-labelledby="ledgerHeading">
           <div class="block-head">
-            <h2 id="ledgerHeading">Allocation ledger</h2>
+            <div class="block-head-left">
+              <span class="block-head-icon icon-amber" aria-hidden="true">📋</span>
+              <h2 id="ledgerHeading">Allocation ledger</h2>
+            </div>
           </div>
           <p class="block-note">Edit or remove any allocation to re-balance instantly.</p>
 
@@ -144,18 +170,24 @@
             </table>
           </div>
         </section>
+
       </div>
 
-      <section class="panel block goals-panel" aria-labelledby="goalsHeading">
+      <!-- Goals -->
+      <section class="block goals-panel" aria-labelledby="goalsHeading">
         <div class="block-head">
-          <h2 id="goalsHeading">Joint goals and sub-goals</h2>
-          <button id="addGoalBtn" class="btn btn-secondary" type="button">Add goal</button>
+          <div class="block-head-left">
+            <span class="block-head-icon icon-purple" aria-hidden="true">🎯</span>
+            <h2 id="goalsHeading">Goals &amp; sub-goals</h2>
+          </div>
+          <button id="addGoalBtn" class="btn btn-secondary" type="button">+ Add goal</button>
         </div>
         <p class="block-note">Example: House goal with Deposit, Solicitor Fees, and Moving Costs sub-goals.</p>
 
         <div id="goalBoard" class="goal-board"></div>
       </section>
     </div>
+
   </div>
 
   <!-- Confirm reset dialog -->

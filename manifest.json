@@ -1,11 +1,11 @@
 {
-  "name": "GC Finance",
-  "short_name": "GC Finance",
-  "description": "Gary & Catherine's joint budget planner — track accounts and savings goals together.",
+  "name": "SavinCGs",
+  "short_name": "SavinCGs",
+  "description": "Gary & Catherine's joint savings planner — track accounts and savings goals together.",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#edf3ea",
-  "theme_color": "#edf3ea",
+  "background_color": "#0b0f18",
+  "theme_color": "#0b0f18",
   "orientation": "any",
   "icons": [
     {
