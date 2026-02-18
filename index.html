@@ -1,10 +1,12 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0b0f18" />
-  <meta name="description" content="SavinCGs — Gary & Catherine's joint savings planner. Track accounts and savings goals together." />
+  <meta name="description"
+    content="SavinCGs — Gary & Catherine's joint savings planner. Track accounts and savings goals together." />
 
   <!-- PWA / iOS home screen -->
   <link rel="manifest" href="./manifest.json" />
@@ -16,11 +18,14 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+    rel="stylesheet" />
   <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
   <title>SavinCGs</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
+
 <body>
   <div class="backdrop" aria-hidden="true"></div>
 
@@ -29,23 +34,34 @@
     <!-- ── Top nav ── -->
     <nav class="top-nav" aria-label="Site navigation">
       <a class="brand" href="#" aria-label="SavinCGs home">
-        <div class="brand-logo" aria-hidden="true">S</div>
+        <div class="brand-logo" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"
+            stroke-linejoin="round">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+          </svg>
+        </div>
         <span class="brand-wordmark">Savin<span>CGs</span></span>
       </a>
-      <span class="nav-badge">Live · Synced</span>
+      <div class="nav-actions">
+        <span class="nav-badge">Live · Synced</span>
+      </div>
     </nav>
+
 
     <!-- ── Hero ── -->
     <header class="hero" aria-label="Page header">
       <div class="hero-text">
-        <p class="eyebrow">✦ Joint Savings Planner</p>
-        <h1>Your money,<br><span class="gradient-text">your goals.</span></h1>
-        <p class="lead">Track Gary &amp; Catherine's separate accounts, set balances, and allocate every pound towards shared goals — house, holiday, and beyond.</p>
+        <p class="eyebrow">✦ Gary & Catherine's Joint Planner</p>
+        <h1>Master your savings,<br><span class="gradient-text">build your future.</span></h1>
+        <p class="lead">The intelligent way to track separate accounts and allocate every penny towards your shared
+          dreams — from a new home to unforgettable adventures.</p>
       </div>
+
       <div class="hero-meta">
         <p class="meta-label">Last updated</p>
         <p id="asOfDate" class="meta-value">Today</p>
-        <button id="resetDataBtn" class="btn-danger-soft" type="button" title="Reset all data to defaults">↺ Reset data</button>
+        <button id="resetDataBtn" class="btn-danger-soft" type="button" title="Reset all data to defaults">↺ Reset
+          data</button>
       </div>
     </header>
 
@@ -104,11 +120,18 @@
 
           <div class="table-wrap">
             <table>
+              <colgroup>
+                <col style="width:25%">
+                <col style="width:20%">
+                <col style="width:15%">
+                <col style="width:13%">
+                <col style="width:13%">
+                <col style="width:14%">
+              </colgroup>
               <thead>
                 <tr>
                   <th>Account</th>
                   <th>Provider</th>
-                  <th>Owner</th>
                   <th>Balance</th>
                   <th>Assigned</th>
                   <th>Available</th>
@@ -158,6 +181,12 @@
 
           <div class="table-wrap">
             <table>
+              <colgroup>
+                <col style="width:33%">
+                <col style="width:33%">
+                <col style="width:22%">
+                <col style="width:12%">
+              </colgroup>
               <thead>
                 <tr>
                   <th>Account</th>
@@ -194,7 +223,8 @@
   <dialog id="resetDialog" class="confirm-dialog">
     <div class="confirm-dialog-inner">
       <h3>Reset all data?</h3>
-      <p>This will remove all your accounts, goals, and allocations and restore the example data. This cannot be undone.</p>
+      <p>This will remove all your accounts, goals, and allocations and restore the example data. This cannot be undone.
+      </p>
       <div class="confirm-dialog-actions">
         <button id="resetCancelBtn" class="btn btn-secondary" type="button">Cancel</button>
         <button id="resetConfirmBtn" class="btn btn-danger" type="button">Yes, reset</button>
@@ -204,4 +234,5 @@
 
   <script src="./app.js"></script>
 </body>
+
 </html>

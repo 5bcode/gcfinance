@@ -264,24 +264,54 @@ function renderAccounts(derived) {
 
   if (!derived.accountsDerived.length) {
     tbody.innerHTML =
-      '<tr class="empty-row"><td colspan="7">No accounts yet. Add one to start allocating funds.</td></tr>';
+      '<tr class="empty-row"><td colspan="6">No accounts yet. Add one to start allocating funds.</td></tr>';
     return;
   }
 
-  tbody.innerHTML = derived.accountsDerived
-    .map((account) => {
-      const availableClass = account.available < 0 ? "number negative" : "number";
-      return `
-        <tr data-account-id="${account.id}">
-          <td><input data-field="name" value="${escapeHtml(account.name)}" aria-label="Account name" /></td>
-          <td><input data-field="provider" value="${escapeHtml(account.provider || "")}" aria-label="Provider" /></td>
-          <td class="owner-cell">${ownerSelectHtml(account.owner, "Account owner")}</td>
-          <td><input data-field="balance" class="number" type="number" min="0" step="50" value="${account.balance}" aria-label="Account balance" /></td>
-          <td class="number">${GBP.format(account.assigned)}</td>
-          <td class="${availableClass}">${GBP.format(account.available)}</td>
-          <td><button type="button" class="row-remove" data-action="remove-account">Remove</button></td>
-        </tr>
-      `;
+  // Group accounts by owner in a fixed order
+  const ownerOrder = ["Gary", "Catherine", "Joint"];
+  const grouped = ownerOrder
+    .map((owner) => ({
+      owner,
+      accounts: derived.accountsDerived.filter((a) => a.owner === owner),
+    }))
+    .filter((g) => g.accounts.length > 0);
+
+  // Also catch any accounts with unexpected owner values
+  const knownOwners = new Set(ownerOrder);
+  const others = derived.accountsDerived.filter((a) => !knownOwners.has(a.owner));
+  if (others.length) grouped.push({ owner: "Other", accounts: others });
+
+  tbody.innerHTML = grouped
+    .map(({ owner, accounts }) => {
+      const groupHeader = `
+        <tr class="account-group-header">
+          <td colspan="6"><span class="account-group-label">${escapeHtml(owner)}</span></td>
+        </tr>`;
+
+      const rows = accounts
+        .map((account) => {
+          const availableClass = account.available < 0 ? "number negative" : "number";
+          return `
+            <tr data-account-id="${account.id}">
+              <td>
+                <div class="account-name-cell">
+                  <input data-field="name" value="${escapeHtml(account.name)}" aria-label="Account name" />
+                  <select data-field="owner" class="owner-pill" aria-label="Account owner">${OWNERS.map(
+            (o) => `<option value="${o}"${o === account.owner ? " selected" : ""}>${escapeHtml(o)}</option>`
+          ).join("")}</select>
+                </div>
+              </td>
+              <td><input data-field="provider" value="${escapeHtml(account.provider || "")}" aria-label="Provider" /></td>
+              <td><input data-field="balance" class="number" type="number" min="0" step="50" value="${account.balance}" aria-label="Account balance" /></td>
+              <td class="number">${GBP.format(account.assigned)}</td>
+              <td class="${availableClass}">${GBP.format(account.available)}</td>
+              <td><button type="button" class="row-remove" data-action="remove-account">Remove</button></td>
+            </tr>`;
+        })
+        .join("");
+
+      return groupHeader + rows;
     })
     .join("");
 }
@@ -300,11 +330,11 @@ function renderAllocationForm(derived) {
   const eligibleAccounts = derived.accountsDerived.filter((account) => account.available > 0);
   accountSelect.innerHTML = eligibleAccounts.length
     ? eligibleAccounts
-        .map(
-          (account) =>
-            `<option value="${account.id}">${escapeHtml(account.owner)} – ${escapeHtml(account.name)}${account.provider ? ` (${escapeHtml(account.provider)})` : ""} — ${GBP.format(account.available)} available</option>`,
-        )
-        .join("")
+      .map(
+        (account) =>
+          `<option value="${account.id}">${escapeHtml(account.owner)} – ${escapeHtml(account.name)}${account.provider ? ` (${escapeHtml(account.provider)})` : ""} — ${GBP.format(account.available)} available</option>`,
+      )
+      .join("")
     : '<option value="">No account has available cash</option>';
 
   if (eligibleAccounts.some((account) => account.id === previousAccount)) {
@@ -314,11 +344,11 @@ function renderAllocationForm(derived) {
   const openSubGoals = derived.subGoalsDerived.filter((subGoal) => subGoal.remaining > 0);
   subGoalSelect.innerHTML = openSubGoals.length
     ? openSubGoals
-        .map(
-          (subGoal) =>
-            `<option value="${subGoal.id}">${escapeHtml(subGoal.goalName)} › ${escapeHtml(subGoal.name)} — ${GBP.format(subGoal.remaining)} left</option>`,
-        )
-        .join("")
+      .map(
+        (subGoal) =>
+          `<option value="${subGoal.id}">${escapeHtml(subGoal.goalName)} › ${escapeHtml(subGoal.name)} — ${GBP.format(subGoal.remaining)} left</option>`,
+      )
+      .join("")
     : '<option value="">All sub-goals are funded</option>';
 
   if (openSubGoals.some((subGoal) => subGoal.id === previousSubGoal)) {
@@ -357,8 +387,8 @@ function renderAllocations(derived) {
           <td>${escapeHtml(account.owner)} – ${escapeHtml(account.name)}</td>
           <td>${escapeHtml(subGoal.goalName)} › ${escapeHtml(subGoal.name)}</td>
           <td><input class="number" type="number" min="0" step="50" value="${normalizeAmount(
-            allocation.amount,
-          )}" data-field="amount" aria-label="Allocation amount" /></td>
+        allocation.amount,
+      )}" data-field="amount" aria-label="Allocation amount" /></td>
           <td><button type="button" class="row-remove" data-action="remove-allocation">Remove</button></td>
         </tr>
       `;
@@ -379,21 +409,22 @@ function renderGoals(derived) {
     .map((goal) => {
       const rows = goal.subGoals.length
         ? goal.subGoals
-            .map((subGoal) => {
-              const derivedSubGoal = derived.subGoalsDerived.find((item) => item.id === subGoal.id);
-              if (!derivedSubGoal) return "";
+          .map((subGoal) => {
+            const derivedSubGoal = derived.subGoalsDerived.find((item) => item.id === subGoal.id);
+            if (!derivedSubGoal) return "";
 
-              return `
+            return `
                 <tr data-goal-id="${goal.id}" data-subgoal-id="${subGoal.id}">
                   <td><input data-field="subgoal-name" value="${escapeHtml(subGoal.name)}" aria-label="Sub-goal name" /></td>
                   <td><input data-field="subgoal-target" class="number" type="number" min="0" step="100" value="${derivedSubGoal.target}" aria-label="Sub-goal target" /></td>
                   <td class="number">${GBP.format(derivedSubGoal.assigned)}</td>
                   <td class="number">${GBP.format(derivedSubGoal.remaining)}</td>
-                  <td>
-                    <div class="progress-track" aria-hidden="true">
+                  <td style="width: 120px;">
+                    <div class="progress-track" aria-label="${derivedSubGoal.progress}% complete">
                       <div class="progress-fill" style="width:${derivedSubGoal.progress}%"></div>
                     </div>
                   </td>
+
                   <td>
                     <div class="subgoal-actions">
                       <button type="button" class="action-ghost" data-action="fill-subgoal">Assign</button>
@@ -402,32 +433,41 @@ function renderGoals(derived) {
                   </td>
                 </tr>
               `;
-            })
-            .join("")
+          })
+          .join("")
         : '<tr class="empty-row"><td colspan="6">No sub-goals yet for this goal.</td></tr>';
 
       return `
-        <article class="goal-card" data-goal-id="${goal.id}">
+        <article class="goal-card" data-goal-id="${goal.id}" data-complete="${goal.progress >= 100}">
           <div class="goal-header">
             <input class="goal-name-input" data-field="goal-name" value="${escapeHtml(goal.name)}" aria-label="Goal name" />
-            <button type="button" class="row-remove" data-action="remove-goal">Remove goal</button>
+            <button type="button" class="btn-danger-soft" style="margin-top:0" data-action="remove-goal">Remove</button>
           </div>
 
           <div class="goal-metrics">
-            <span class="goal-chip">Target ${GBP.format(goal.target)}</span>
-            <span class="goal-chip">Assigned ${GBP.format(goal.assigned)}</span>
-            <span class="goal-chip">Remaining ${GBP.format(goal.remaining)}</span>
-            <span class="goal-chip funded-chip" data-progress="${goal.progress}">Funded ${goal.progress}%</span>
+            <span class="goal-chip chip-target">Target <b>${GBP.format(goal.target)}</b></span>
+            <span class="goal-chip chip-assigned">Assigned <b>${GBP.format(goal.assigned)}</b></span>
+            <span class="goal-chip chip-remaining" data-empty="${goal.remaining === 0}">Remaining <b>${GBP.format(goal.remaining)}</b></span>
+            <span class="goal-chip funded-chip" data-progress="${goal.progress}">Funded <b>${goal.progress}%</b></span>
           </div>
+
 
           <div class="table-wrap">
             <table>
+              <colgroup>
+                <col style="width:30%">
+                <col style="width:14%">
+                <col style="width:14%">
+                <col style="width:14%">
+                <col style="width:16%">
+                <col style="width:12%">
+              </colgroup>
               <thead>
                 <tr>
                   <th>Sub-goal</th>
-                  <th>Target</th>
-                  <th>Assigned</th>
-                  <th>Remaining</th>
+                  <th class="number">Target</th>
+                  <th class="number">Assigned</th>
+                  <th class="number">Remaining</th>
                   <th>Progress</th>
                   <th></th>
                 </tr>
@@ -436,10 +476,11 @@ function renderGoals(derived) {
             </table>
           </div>
 
-          <div class="goal-footer">
-            <button type="button" class="btn btn-secondary" data-action="add-subgoal">Add sub-goal</button>
+          <div class="goal-footer" style="margin-top: 20px; display: flex; justify-content: flex-end;">
+            <button type="button" class="btn btn-secondary" data-action="add-subgoal">+ Add sub-goal</button>
           </div>
         </article>
+
       `;
     })
     .join("");
