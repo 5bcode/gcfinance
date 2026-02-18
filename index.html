@@ -53,9 +53,8 @@
     <header class="hero" aria-label="Page header">
       <div class="hero-text">
         <p class="eyebrow">✦ Gary & Catherine's Joint Planner</p>
-        <h1>Master your savings,<br><span class="gradient-text">build your future.</span></h1>
-        <p class="lead">The intelligent way to track separate accounts and allocate every penny towards your shared
-          dreams — from a new home to unforgettable adventures.</p>
+        <h1>Building our future,<br><span class="gradient-text">together.</span></h1>
+        <p class="lead">Tracking our savings, reaching our goals, and enjoying the journey.</p>
       </div>
 
       <div class="hero-meta">
@@ -136,20 +135,18 @@
             <div class="table-wrap">
               <table id="accountsTable" class="accounts-table" data-edit="false">
                 <colgroup>
-                  <col style="width:18%">
-                  <col style="width:22%">
-                  <col style="width:18%">
-                  <col style="width:16%">
-                  <col style="width:16%">
+                  <col style="width:15%">
+                  <col style="width:35%">
+                  <col style="width:20%">
+                  <col style="width:20%">
                   <col style="width:10%">
                 </colgroup>
                 <thead>
                   <tr>
                     <th>Owner</th>
                     <th>Provider</th>
-                    <th>Balance</th>
-                    <th>Assigned</th>
-                    <th>Available</th>
+                    <th class="number">Balance</th>
+                    <th class="number">Available</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -206,7 +203,7 @@
                   <tr>
                     <th>Account</th>
                     <th>Goal / Sub-goal</th>
-                    <th>Amount</th>
+                    <th class="number">Amount</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -269,42 +266,31 @@
           month to track your journey!</p>
       </div>
 
-      <!-- Monthly bar chart -->
+      <!-- Combined Chart -->
       <section class="block progress-chart-block" aria-labelledby="chartHeading">
         <div class="block-head">
           <div class="block-head-left">
             <span class="block-head-icon icon-purple" aria-hidden="true">�</span>
-            <h2 id="chartHeading">Monthly Savings</h2>
+            <h2 id="chartHeading">Savings Analysis</h2>
           </div>
           <div class="chart-legend">
-            <span class="chart-legend-item chart-legend-planned"><span class="chart-legend-swatch"></span>
-              Planned</span>
-            <span class="chart-legend-item chart-legend-actual"><span class="chart-legend-swatch"></span> Actual</span>
+            <span class="chart-legend-group-label">Monthly</span>
+            <span class="chart-legend-item chart-legend-planned"><span
+                class="chart-legend-swatch chart-legend-swatch--bar"></span> Planned</span>
+            <span class="chart-legend-item chart-legend-actual"><span
+                class="chart-legend-swatch chart-legend-swatch--bar"
+                style="background:#06b6d4;box-shadow:0 0 6px rgba(6,182,212,0.4)"></span> Actual</span>
+            <span class="chart-legend-divider"></span>
+            <span class="chart-legend-group-label">Cumulative</span>
+            <span class="chart-legend-item"><span class="chart-legend-swatch chart-legend-swatch--line"
+                style="background:#c4b5fd;"></span> Planned</span>
+            <span class="chart-legend-item"><span class="chart-legend-swatch chart-legend-swatch--line"
+                style="background:#22d3ee;"></span> Saved</span>
           </div>
         </div>
         <div class="progress-chart-container">
-          <canvas id="monthlyBarChart" width="900" height="280"></canvas>
-        </div>
-      </section>
-
-      <!-- Cumulative total chart -->
-      <section class="block progress-chart-block" aria-labelledby="cumChartHeading">
-        <div class="block-head">
-          <div class="block-head-left">
-            <span class="block-head-icon icon-teal" aria-hidden="true">📈</span>
-            <h2 id="cumChartHeading">Total Saved Over Time</h2>
-          </div>
-          <div class="chart-legend">
-            <span class="chart-legend-item"><span class="chart-legend-swatch"
-                style="background:linear-gradient(90deg,#a78bfa,#c4b5fd); height:4px; box-shadow:0 0 6px rgba(167,139,250,0.4);"></span>
-              Total Planned</span>
-            <span class="chart-legend-item"><span class="chart-legend-swatch"
-                style="background:linear-gradient(90deg,#06b6d4,#22d3ee); height:4px; box-shadow:0 0 6px rgba(6,182,212,0.4);"></span>
-              Total Saved</span>
-          </div>
-        </div>
-        <div class="progress-chart-container">
-          <canvas id="cumulativeChart" width="900" height="280"></canvas>
+          <canvas id="progressChart" width="900" height="380"></canvas>
+          <div id="chartTooltip" class="chart-tooltip" aria-hidden="true"></div>
         </div>
       </section>
 
@@ -368,19 +354,32 @@
       </div>
 
       <div class="wizard-progress">
-        <div class="wizard-progress-fill" id="addAccountProgress" style="width:25%"></div>
+        <div class="wizard-progress-fill" id="addAccountProgress" style="width:20%"></div>
       </div>
 
-      <!-- Step 1: Name -->
+      <!-- Step 1: Type -->
       <div class="wizard-step" id="addAcctStep1">
-        <label class="wizard-label" for="newAcctName">What do you call this account?</label>
-        <input id="newAcctName" type="text" class="wizard-input" placeholder="e.g. Current Account, Savings, ISA…"
-          maxlength="60" autocomplete="off" />
-        <p class="wizard-hint">Give it a friendly name you'll recognise at a glance.</p>
+        <label class="wizard-label">What type of account is this?</label>
+        <div class="wizard-choice-group" id="typeChoices">
+          <button type="button" class="wizard-choice" data-value="Current Account">Current Account</button>
+          <button type="button" class="wizard-choice" data-value="Savings">Savings</button>
+          <button type="button" class="wizard-choice" data-value="ISA">ISA</button>
+          <button type="button" class="wizard-choice" data-value="Joint Account">Joint Account</button>
+          <button type="button" class="wizard-choice" data-value="Credit Card">Credit Card</button>
+          <button type="button" class="wizard-choice" data-value="Other">Other</button>
+        </div>
       </div>
 
-      <!-- Step 2: Owner -->
+      <!-- Step 2: Name -->
       <div class="wizard-step" id="addAcctStep2" hidden>
+        <label class="wizard-label" for="newAcctName">Give it a nickname</label>
+        <input id="newAcctName" type="text" class="wizard-input" placeholder="e.g. Rainy Day, Bills, Main Hub…"
+          maxlength="60" autocomplete="off" />
+        <p class="wizard-hint">Helpful to identify this specific account.</p>
+      </div>
+
+      <!-- Step 3: Owner -->
+      <div class="wizard-step" id="addAcctStep3" hidden>
         <label class="wizard-label">Who owns this account?</label>
         <div class="wizard-choice-group" id="ownerChoices">
           <button type="button" class="wizard-choice" data-value="Gary">👤 Gary</button>
@@ -390,16 +389,16 @@
         <p class="wizard-hint">The account will be sorted into the correct section automatically.</p>
       </div>
 
-      <!-- Step 3: Provider -->
-      <div class="wizard-step" id="addAcctStep3" hidden>
+      <!-- Step 4: Provider -->
+      <div class="wizard-step" id="addAcctStep4" hidden>
         <label class="wizard-label" for="newAcctProvider">Which bank or provider?</label>
         <input id="newAcctProvider" type="text" class="wizard-input" placeholder="e.g. Monzo, Barclays, Nationwide…"
           maxlength="60" autocomplete="off" />
         <p class="wizard-hint">Optional — leave blank if you'd rather add it later.</p>
       </div>
 
-      <!-- Step 4: Balance -->
-      <div class="wizard-step" id="addAcctStep4" hidden>
+      <!-- Step 5: Balance -->
+      <div class="wizard-step" id="addAcctStep5" hidden>
         <label class="wizard-label" for="newAcctBalance">Current balance (£)</label>
         <input id="newAcctBalance" type="number" class="wizard-input" min="0" step="50" placeholder="e.g. 2500" />
         <p class="wizard-hint">You can update this at any time from the accounts table.</p>

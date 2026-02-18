@@ -56,13 +56,16 @@
   --radius: 16px;
 
   /* Shadows */
-  --shadow-main: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-  --shadow-lg: 0 16px 48px 0 rgba(0, 0, 0, 0.5);
+  --shadow-main: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 20px 60px 0 rgba(0, 0, 0, 0.6);
   --shadow-glow: 0 0 30px 0 var(--brand-glow);
 
   /* Lines / borders */
   --line: rgba(255, 255, 255, 0.08);
   --line-strong: rgba(255, 255, 255, 0.12);
+
+  /* Animations */
+  --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
 
   /* Supplemental accent tokens */
   --teal: #06b6d4;
@@ -434,9 +437,15 @@ h1 .gradient-text {
   border-radius: var(--radius-md);
   background: var(--surface);
   backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   padding: 24px;
-  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transition: all 0.4s var(--ease-spring);
   box-shadow: var(--shadow-main);
+}
+
+.entry-anim .summary-card,
+.entry-anim .block {
+  animation: fade-in-up 0.8s var(--ease-spring) backwards;
 }
 
 .summary-card::before {
@@ -703,7 +712,7 @@ h1 .gradient-text {
 }
 
 .btn-primary:active {
-  transform: translateY(0);
+  transform: translateY(0) scale(0.98);
 }
 
 .btn-secondary {
@@ -1333,6 +1342,43 @@ td:last-child {
   }
 }
 
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Stagger delays for entering items */
+.summary-grid>*:nth-child(1) {
+  animation-delay: 0.05s;
+}
+
+.summary-grid>*:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.summary-grid>*:nth-child(3) {
+  animation-delay: 0.15s;
+}
+
+.summary-grid>*:nth-child(4) {
+  animation-delay: 0.2s;
+}
+
+.summary-grid>*:nth-child(5) {
+  animation-delay: 0.25s;
+}
+
+.tab-panel {
+  animation: fade-in 0.4s ease;
+}
+
 /* ── Scrollbar styling ──────────────────────────────────────────────────── */
 
 ::-webkit-scrollbar {
@@ -1642,6 +1688,42 @@ td:last-child {
 
 .wizard-footer .btn {
   flex: 1;
+}
+
+/* ── Accounts Table Grouping ───────────────────────────────────────────── */
+.account-group-header td {
+  padding: 24px 8px 12px;
+  border-bottom: none;
+  text-align: left;
+}
+
+.account-group-label {
+  display: inline-block;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--brand-light);
+  text-transform: capitalize;
+  letter-spacing: -0.01em;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+}
+
+.account-group-label--type {
+  /* Deprecated but kept just in case */
+  background: transparent;
+  border: none;
+  color: var(--ink);
+}
+
+/* Numeric columns align right */
+.number,
+th.number,
+td.number {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── Account filter bar ────────────────────────────────────────────────── */
@@ -1991,10 +2073,20 @@ td:last-child {
   position: relative;
   width: 100%;
   border-radius: var(--radius-sm);
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(0, 0, 0, 0.25);
   border: 1px solid var(--glass-border);
-  padding: 16px 8px 8px;
+  padding: 16px 8px 12px;
   overflow: hidden;
+}
+
+/* Subtle inner top highlight */
+.progress-chart-container::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.025) 0%, transparent 30%);
+  pointer-events: none;
+  border-radius: inherit;
 }
 
 .progress-chart-container canvas {
@@ -2002,36 +2094,128 @@ td:last-child {
   width: 100%;
 }
 
+/* ── Chart Tooltip ────────────────────────────────────────────────────── */
+.chart-tooltip {
+  position: absolute;
+  pointer-events: none;
+  background: rgba(13, 17, 28, 0.95);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.6;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  min-width: 130px;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 10;
+  white-space: nowrap;
+}
+
+.chart-tooltip.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.chart-tooltip-month {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  margin-bottom: 6px;
+  font-weight: 700;
+}
+
+.chart-tooltip-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 1px 0;
+}
+
+.chart-tooltip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.chart-tooltip-label {
+  color: var(--muted);
+  flex: 1;
+}
+
+.chart-tooltip-val {
+  color: var(--ink);
+  font-weight: 700;
+  font-family: var(--font-display);
+}
+
+/* ── Chart Legend ────────────────────────────────────────────────────── */
+#progressChart {
+  width: 100%;
+  height: 380px;
+  display: block;
+}
+
 .chart-legend {
   display: flex;
-  gap: 16px;
+  gap: 10px;
   align-items: center;
+  flex-wrap: wrap;
+}
+
+.chart-legend-group-label {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted-dark);
+  padding-right: 2px;
+}
+
+.chart-legend-divider {
+  width: 1px;
+  height: 14px;
+  background: var(--line-strong);
+  flex-shrink: 0;
+  margin: 0 4px;
 }
 
 .chart-legend-item {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   font-weight: 600;
-  color: var(--muted);
+  color: var(--ink-dim);
 }
 
 .chart-legend-swatch {
   display: inline-block;
-  width: 12px;
-  height: 4px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.chart-legend-swatch--bar {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.chart-legend-swatch--line {
+  width: 18px;
+  height: 3px;
   border-radius: 2px;
 }
 
-.chart-legend-planned .chart-legend-swatch {
-  background: #a78bfa;
-  box-shadow: 0 0 6px rgba(167, 139, 250, 0.4);
-}
-
-.chart-legend-actual .chart-legend-swatch {
-  background: #06b6d4;
-  box-shadow: 0 0 6px rgba(6, 182, 212, 0.4);
+.chart-legend-planned .chart-legend-swatch--bar {
+  background: rgba(167, 139, 250, 0.65);
+  box-shadow: 0 0 6px rgba(167, 139, 250, 0.5);
 }
 
 /* Block override */

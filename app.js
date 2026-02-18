@@ -13,13 +13,15 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December",
 ];
 
+const ACCOUNT_TYPES = ["Current Account", "Savings", "ISA", "Joint Account", "Credit Card", "Other"];
+
 const DEFAULT_DATA = {
   accounts: [
-    { id: "acct-gary-current", name: "Current Account", provider: "Monzo", owner: "Gary", balance: 0 },
-    { id: "acct-gary-savings", name: "Savings", provider: "Monzo", owner: "Gary", balance: 0 },
-    { id: "acct-cat-current", name: "Current Account", provider: "Barclays", owner: "Catherine", balance: 0 },
-    { id: "acct-cat-savings", name: "Savings", provider: "Barclays", owner: "Catherine", balance: 0 },
-    { id: "acct-joint-isa", name: "Joint ISA", provider: "Nationwide", owner: "Joint", balance: 0 },
+    { id: "acct-gary-current", name: "Main Hub", type: "Current Account", provider: "Monzo", owner: "Gary", balance: 0 },
+    { id: "acct-gary-savings", name: "Rainy Day", type: "Savings", provider: "Monzo", owner: "Gary", balance: 0 },
+    { id: "acct-cat-current", name: "Daily Spend", type: "Current Account", provider: "Barclays", owner: "Catherine", balance: 0 },
+    { id: "acct-cat-savings", name: "Backup", type: "Savings", provider: "Barclays", owner: "Catherine", balance: 0 },
+    { id: "acct-joint-isa", name: "Future Fund", type: "Joint Account", provider: "Nationwide", owner: "Joint", balance: 0 },
   ],
   goals: [
     {
@@ -142,6 +144,15 @@ function ownerSelectHtml(selected, label) {
 }
 
 // ── Animations & Feedback ────────────────────────────────────────────────────
+function inferTypeFromName(name) {
+  const n = (name || "").toLowerCase();
+  if (n.includes("isa")) return "ISA";
+  if (n.includes("joint")) return "Joint Account";
+  if (n.includes("saving")) return "Savings";
+  if (n.includes("current")) return "Current Account";
+  if (n.includes("credit")) return "Credit Card";
+  return "Other";
+}
 function triggerConfetti() {
   if (typeof confetti === "function") {
     confetti({
@@ -224,6 +235,7 @@ function sanitizeState() {
       ...account,
       id: account.id || makeId("acct"),
       name: String(account.name || `Account ${idx + 1}`).trim() || `Account ${idx + 1}`,
+      type: account.type || inferTypeFromName(account.name),
       provider: String(account.provider || "").trim(),
       owner: OWNERS.includes(account.owner) ? account.owner : "Joint",
       balance: normalizeAmount(account.balance),
@@ -403,7 +415,6 @@ function renderAccounts(derived) {
   if (filterBar) {
     const allActive = OWNERS.every((o) => acctOwnerFilter.has(o));
     filterBar.innerHTML =
-      `<button type="button" class="filter-pill${allActive ? " active" : ""}" data-filter-owner="all">All</button>` +
       OWNERS.map((o) => {
         const active = acctOwnerFilter.has(o);
         return `<button type="button" class="filter-pill filter-pill--${OWNER_COLORS[o] || "other"}${active ? " active" : ""}" data-filter-owner="${escapeHtml(o)}">${escapeHtml(o)}</button>`;
@@ -411,7 +422,7 @@ function renderAccounts(derived) {
   }
 
   if (!derived.accountsDerived.length) {
-    tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No accounts yet. Add one to start allocating funds.</td></tr>';
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No accounts yet. Add one to start allocating funds.</td></tr>';
     return;
   }
 
@@ -419,25 +430,32 @@ function renderAccounts(derived) {
   const visible = derived.accountsDerived.filter((a) => acctOwnerFilter.has(a.owner));
 
   if (!visible.length) {
-    tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No accounts match the current filter.</td></tr>';
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No accounts match the current filter.</td></tr>';
     return;
   }
 
-  // ── Group by account name (type), sorted alphabetically ──────────────────
+  // ── Group by 'type' (with fallback to Name) ──────────────────────────────
   const typeMap = new Map();
   visible.forEach((account) => {
-    const key = account.name.trim();
+    const key = account.type || account.name || "Other";
     if (!typeMap.has(key)) typeMap.set(key, []);
     typeMap.get(key).push(account);
   });
 
-  const sortedTypes = [...typeMap.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  // Sort groups by predefined order, then alphabetical
+  const typeOrder = ACCOUNT_TYPES.reduce((acc, t, i) => ({ ...acc, [t]: i }), {});
+  const sortedTypes = [...typeMap.entries()].sort((a, b) => {
+    const idxA = typeOrder[a[0]] ?? 999;
+    const idxB = typeOrder[b[0]] ?? 999;
+    if (idxA !== idxB) return idxA - idxB;
+    return a[0].localeCompare(b[0]);
+  });
 
   tbody.innerHTML = sortedTypes
     .map(([typeName, accounts]) => {
       const groupHeader = `
         <tr class="account-group-header">
-          <td colspan="6"><span class="account-group-label account-group-label--type">${escapeHtml(typeName)}</span></td>
+          <td colspan="5"><span class="account-group-label">${escapeHtml(typeName)}</span></td>
         </tr>`;
 
       const rows = accounts
@@ -464,7 +482,6 @@ function renderAccounts(derived) {
               <td>${ownerCell}</td>
               <td>${providerCell}</td>
               <td><input data-field="balance" class="number" type="number" min="0" step="50" value="${account.balance}" aria-label="Account balance" /></td>
-              <td class="number">${GBP.format(account.assigned)}</td>
               <td class="${availableClass}">${GBP.format(account.available)}</td>
               <td>${removeCell}</td>
             </tr>`;
@@ -648,145 +665,28 @@ function renderGoals(derived) {
 
 // ── Charts ─────────────────────────────────────────────────────────────────────
 
-function setupCanvas(canvas, desiredHeight) {
+function renderProgressChart(hoverIndex = -1) {
+  const canvas = document.getElementById("progressChart");
+  if (!canvas) return;
   const container = canvas.parentElement;
   const dpr = window.devicePixelRatio || 1;
   const rect = container.getBoundingClientRect();
-  if (rect.width === 0) return null; // hidden tab
-  canvas.width = rect.width * dpr;
-  canvas.height = desiredHeight * dpr;
-  canvas.style.width = rect.width + "px";
-  canvas.style.height = desiredHeight + "px";
+  if (rect.width === 0) return;
+
+  const h = 380;
+  // Use explicit width/height to avoid clearing if possible, but for simplicity always set
+  if (canvas.width !== rect.width * dpr || canvas.height !== h * dpr) {
+    canvas.width = rect.width * dpr;
+    canvas.height = h * dpr;
+  }
+
   const ctx = canvas.getContext("2d");
+  ctx.resetTransform();
   ctx.scale(dpr, dpr);
-  ctx.clearRect(0, 0, rect.width, desiredHeight);
-  return { ctx, w: rect.width, h: desiredHeight };
-}
+  ctx.clearRect(0, 0, rect.width, h);
 
-function renderMonthlyBarChart() {
-  const canvas = document.getElementById("monthlyBarChart");
-  if (!canvas) return;
-  const setup = setupCanvas(canvas, 280);
-  if (!setup) return;
-  const { ctx, w, h } = setup;
-
-  const pad = { top: 24, right: 20, bottom: 40, left: 56 };
-  const chartW = w - pad.left - pad.right;
-  const chartH = h - pad.top - pad.bottom;
-
-  const SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const planned = state.monthlyProgress.map((e) => (e.plannedGary || 0) + (e.plannedCat || 0));
-  const actual = state.monthlyProgress.map((e) => (e.actualGary || 0) + (e.actualCat || 0));
-  const maxVal = Math.max(1, ...planned, ...actual) * 1.15;
-  const currentMonth = new Date().getMonth();
-
-  const slotW = chartW / 12;
-  const barW = Math.min(slotW * 0.32, 28);
-  const gap = Math.max(2, barW * 0.15);
-  const toX = (i) => pad.left + slotW * i + slotW / 2;
-  const toY = (v) => pad.top + chartH - (v / maxVal) * chartH;
-
-  // Grid lines & Left Y-axis labels
-  ctx.strokeStyle = "rgba(255,255,255,0.05)";
-  ctx.lineWidth = 1;
-  ctx.fillStyle = "#64748b";
-  ctx.font = "600 10px Inter, sans-serif";
-  ctx.textAlign = "right";
-  ctx.textBaseline = "middle";
-  const gridCount = 5;
-  for (let i = 0; i <= gridCount; i++) {
-    const val = Math.round((maxVal / gridCount) * i);
-    const y = toY(val);
-    ctx.beginPath();
-    ctx.moveTo(pad.left, y);
-    ctx.lineTo(w - pad.right, y);
-    ctx.stroke();
-    if (i > 0) ctx.fillText("£" + val.toLocaleString(), pad.left - 8, y);
-  }
-
-  // X-axis labels
-  ctx.textAlign = "center";
-  ctx.textBaseline = "top";
-  SHORT.forEach((label, i) => {
-    const x = toX(i);
-    const isCurrent = i === currentMonth;
-    ctx.fillStyle = isCurrent ? "#a78bfa" : "#64748b";
-    ctx.font = isCurrent ? "700 11px Inter, sans-serif" : "600 11px Inter, sans-serif";
-    ctx.fillText(label, x, h - pad.bottom + 8);
-  });
-
-  // Current month subtle highlight
-  ctx.fillStyle = "rgba(124, 58, 237, 0.04)";
-  ctx.beginPath();
-  ctx.roundRect(toX(currentMonth) - slotW / 2, pad.top, slotW, chartH, 4);
-  ctx.fill();
-
-  // Draw bars
-  const baseline = pad.top + chartH;
-
-  for (let i = 0; i < 12; i++) {
-    const x = toX(i);
-    const isFuture = i > currentMonth;
-
-    // Planned bar (left)
-    const pHeight = (planned[i] / maxVal) * chartH;
-    if (planned[i] > 0) {
-      const bx = x - gap / 2 - barW;
-      const by = baseline - pHeight;
-      const grad = ctx.createLinearGradient(0, by, 0, baseline);
-      grad.addColorStop(0, isFuture ? "rgba(167,139,250,0.25)" : "rgba(167,139,250,0.6)");
-      grad.addColorStop(1, isFuture ? "rgba(167,139,250,0.08)" : "rgba(167,139,250,0.15)");
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.roundRect(bx, by, barW, pHeight, [4, 4, 0, 0]);
-      ctx.fill();
-      ctx.fillStyle = isFuture ? "rgba(167,139,250,0.3)" : "#a78bfa";
-      ctx.beginPath();
-      ctx.roundRect(bx, by, barW, 3, [4, 4, 0, 0]);
-      ctx.fill();
-    }
-
-    // Actual bar (right)
-    const aHeight = (actual[i] / maxVal) * chartH;
-    if (actual[i] > 0) {
-      const bx = x + gap / 2;
-      const by = baseline - aHeight;
-      const grad = ctx.createLinearGradient(0, by, 0, baseline);
-      grad.addColorStop(0, "rgba(6,182,212,0.7)");
-      grad.addColorStop(1, "rgba(6,182,212,0.15)");
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.roundRect(bx, by, barW, aHeight, [4, 4, 0, 0]);
-      ctx.fill();
-      ctx.fillStyle = "#06b6d4";
-      ctx.beginPath();
-      ctx.roundRect(bx, by, barW, 3, [4, 4, 0, 0]);
-      ctx.fill();
-    }
-
-    // Value labels on top of bars
-    ctx.font = "600 9px Inter, sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "bottom";
-    if (planned[i] > 0 && pHeight > 18) {
-      ctx.fillStyle = isFuture ? "rgba(167,139,250,0.5)" : "#c4b5fd";
-      ctx.fillText("£" + planned[i].toLocaleString(), x - gap / 2 - barW / 2, baseline - pHeight - 4);
-    }
-    if (actual[i] > 0 && aHeight > 18) {
-      ctx.fillStyle = "#22d3ee";
-      ctx.fillText("£" + actual[i].toLocaleString(), x + gap / 2 + barW / 2, baseline - aHeight - 4);
-    }
-  }
-}
-
-function renderCumulativeChart() {
-  const canvas = document.getElementById("cumulativeChart");
-  if (!canvas) return;
-  const setup = setupCanvas(canvas, 280);
-  if (!setup) return;
-  const { ctx, w, h } = setup;
-
-  const pad = { top: 24, right: 20, bottom: 40, left: 56 };
+  const w = rect.width;
+  const pad = { top: 24, right: 76, bottom: 46, left: 76 };
   const chartW = w - pad.left - pad.right;
   const chartH = h - pad.top - pad.bottom;
 
@@ -795,7 +695,7 @@ function renderCumulativeChart() {
   const actual = state.monthlyProgress.map((e) => (e.actualGary || 0) + (e.actualCat || 0));
   const currentMonth = new Date().getMonth();
 
-  // Build cumulative arrays
+  // Accumulate
   let cumP = 0, cumA = 0;
   const cumPlanned = [];
   const cumActual = [];
@@ -803,147 +703,311 @@ function renderCumulativeChart() {
     cumP += planned[i];
     cumA += actual[i];
     cumPlanned.push(cumP);
-    if (i <= currentMonth || actual[i] > 0) {
-      cumActual.push(cumA);
-    } else {
-      cumActual.push(null);
+    if (i <= currentMonth || actual[i] > 0) cumActual.push(cumA);
+    else cumActual.push(null);
+  }
+
+  // Scales
+  const maxMonthlyVal = Math.max(1, ...planned, ...actual);
+  const maxMonthlyVisual = maxMonthlyVal / 0.42;
+  const maxTotal = Math.max(1, cumP, cumA) * 1.05;
+
+  const toX = (i) => pad.left + (chartW / 12) * i + (chartW / 24);
+  const toY_Right = (v) => pad.top + chartH - (v / maxTotal) * chartH;
+  const toY_Left = (v) => pad.top + chartH - (v / maxMonthlyVisual) * chartH;
+
+  // ── Draw Grid & Axes ───────────────────────────────────────────────────────
+  ctx.textBaseline = "middle";
+
+  // Gridlines
+  const gridCount = 5;
+  for (let i = 0; i <= gridCount; i++) {
+    const valRight = (maxTotal / gridCount) * i;
+    const y = toY_Right(valRight);
+
+    if (i > 0) {
+      // Horizontal Line
+      ctx.beginPath();
+      ctx.moveTo(pad.left, y);
+      ctx.lineTo(w - pad.right, y);
+      ctx.strokeStyle = "rgba(255,255,255,0.06)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // Right Tick & Label
+      ctx.beginPath();
+      ctx.moveTo(w - pad.right, y);
+      ctx.lineTo(w - pad.right + 6, y);
+      ctx.strokeStyle = "rgba(196,181,253,0.4)";
+      ctx.stroke();
+
+      const fmtR = valRight >= 1000 ? "\u00a3" + (valRight / 1000).toFixed(1) + "k" : "\u00a3" + Math.round(valRight);
+      ctx.font = "600 11px Inter, sans-serif";
+      ctx.fillStyle = "rgba(196,181,253, 0.8)";
+      ctx.textAlign = "left";
+      ctx.fillText(fmtR, w - pad.right + 12, y);
     }
   }
 
-  const maxVal = Math.max(1, cumP, cumA) * 1.1;
-  const xStep = chartW / 11;
-  const toX = (i) => pad.left + i * xStep;
-  const toY = (v) => pad.top + chartH - (v / maxVal) * chartH;
-
-  // Grid lines & Y-axis labels
-  ctx.strokeStyle = "rgba(255,255,255,0.05)";
-  ctx.lineWidth = 1;
-  ctx.fillStyle = "#64748b";
-  ctx.font = "600 10px Inter, sans-serif";
-  ctx.textAlign = "right";
-  ctx.textBaseline = "middle";
-  const gridCount = 5;
-  for (let i = 0; i <= gridCount; i++) {
-    const val = Math.round((maxVal / gridCount) * i);
-    const y = toY(val);
-    ctx.beginPath();
-    ctx.moveTo(pad.left, y);
-    ctx.lineTo(w - pad.right, y);
-    ctx.stroke();
-    if (i > 0) ctx.fillText("£" + val.toLocaleString(), pad.left - 8, y);
-  }
-
-  // X-axis labels
+  // X-Axis
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
   SHORT.forEach((label, i) => {
     const x = toX(i);
     const isCurrent = i === currentMonth;
-    ctx.fillStyle = isCurrent ? "#a78bfa" : "#64748b";
-    ctx.font = isCurrent ? "700 11px Inter, sans-serif" : "600 11px Inter, sans-serif";
-    ctx.fillText(label, x, h - pad.bottom + 8);
+    const isHover = i === hoverIndex;
+
+    ctx.fillStyle = isCurrent ? "#c4b5fd" : isHover ? "#e2e8f0" : "#94a3b8";
+    ctx.font = isCurrent ? "700 13px Inter, sans-serif" : isHover ? "600 12px Inter, sans-serif" : "500 12px Inter, sans-serif";
+    ctx.fillText(label, x, h - pad.bottom + 12);
+
+    // Tick
+    ctx.beginPath();
+    ctx.moveTo(x, pad.top + chartH);
+    ctx.lineTo(x, pad.top + chartH + 6);
+    ctx.strokeStyle = "rgba(255,255,255,0.1)";
+    ctx.stroke();
   });
 
-  // Current month vertical guide
-  ctx.setLineDash([4, 4]);
-  ctx.strokeStyle = "rgba(167,139,250,0.2)";
-  ctx.lineWidth = 1;
+  // Current Month Highlight
+  const slotW = chartW / 12;
+  ctx.fillStyle = "rgba(124, 58, 237, 0.04)";
   ctx.beginPath();
-  ctx.moveTo(toX(currentMonth), pad.top);
-  ctx.lineTo(toX(currentMonth), pad.top + chartH);
-  ctx.stroke();
-  ctx.setLineDash([]);
+  ctx.roundRect(toX(currentMonth) - slotW / 2, pad.top, slotW, chartH, 6);
+  ctx.fill();
 
-  // Helper: Draw filled area line
-  function drawAreaLine(data, lineColor, fillColor, glowColor) {
-    const points = [];
-    for (let i = 0; i < 12; i++) {
-      if (data[i] !== null) points.push({ i, x: toX(i), y: toY(data[i]), val: data[i] });
-    }
-    if (points.length < 2) return;
-
-    // Area fill
-    const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + chartH);
-    grad.addColorStop(0, fillColor);
-    grad.addColorStop(1, "rgba(0,0,0,0)");
-
+  // Hover Highlight
+  if (hoverIndex >= 0 && hoverIndex !== currentMonth) {
+    ctx.fillStyle = "rgba(255, 255, 255, 0.02)";
     ctx.beginPath();
-    ctx.moveTo(points[0].x, pad.top + chartH);
-    ctx.lineTo(points[0].x, points[0].y);
-    for (let p = 1; p < points.length; p++) {
-      const prev = points[p - 1];
-      const curr = points[p];
-      const cpx = (prev.x + curr.x) / 2;
-      ctx.bezierCurveTo(cpx, prev.y, cpx, curr.y, curr.x, curr.y);
-    }
-    ctx.lineTo(points[points.length - 1].x, pad.top + chartH);
-    ctx.closePath();
-    ctx.fillStyle = grad;
+    ctx.roundRect(toX(hoverIndex) - slotW / 2, pad.top, slotW, chartH, 6);
     ctx.fill();
+  }
 
-    // Line
-    ctx.beginPath();
-    ctx.moveTo(points[0].x, points[0].y);
-    for (let p = 1; p < points.length; p++) {
-      const prev = points[p - 1];
-      const curr = points[p];
-      const cpx = (prev.x + curr.x) / 2;
-      ctx.bezierCurveTo(cpx, prev.y, cpx, curr.y, curr.x, curr.y);
-    }
-    ctx.strokeStyle = lineColor;
-    ctx.lineWidth = 3;
-    ctx.setLineDash([]);
-    ctx.stroke();
+  // ── Layer 1: Monthly Bars ──────────────────────────────────────────────────
+  const barW = Math.min(slotW * 0.45, 28);
 
-    // Glow line (underneath)
-    ctx.save();
-    ctx.globalCompositeOperation = "destination-over";
-    ctx.strokeStyle = glowColor;
-    ctx.lineWidth = 8;
-    ctx.filter = "blur(4px)";
-    ctx.stroke();
-    ctx.restore();
+  for (let i = 0; i < 12; i++) {
+    const x = toX(i);
+    const bx = x - barW / 2;
 
-    // Dots at every data point & value labels at milestones
-    ctx.font = "700 10px Inter, sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "bottom";
+    // Actual Fill
+    if (actual[i] > 0) {
+      const hActual = (actual[i] / maxMonthlyVisual) * chartH;
+      const byA = pad.top + chartH - hActual;
 
-    points.forEach((pt, idx) => {
-      const isLast = idx === points.length - 1;
-      const isFirst = idx === 0;
-      const isMilestone = isFirst || isLast || pt.i === currentMonth;
+      const barGrad = ctx.createLinearGradient(0, byA, 0, pad.top + chartH);
+      barGrad.addColorStop(0, "rgba(6,182,212,0.85)");
+      barGrad.addColorStop(1, "rgba(6,182,212,0.15)");
 
-      // Dot
+      ctx.fillStyle = barGrad;
       ctx.beginPath();
-      ctx.arc(pt.x, pt.y, isMilestone ? 5 : 3, 0, Math.PI * 2);
-      ctx.fillStyle = lineColor;
+      ctx.roundRect(bx, byA, barW, hActual, [4, 4, 1, 1]);
       ctx.fill();
 
-      if (isMilestone) {
-        // Outer glow
+      // Top edge
+      ctx.fillStyle = "rgba(34,211,238,0.9)";
+      ctx.beginPath();
+      ctx.rect(bx, byA, barW, 1);
+      ctx.fill();
+    }
+
+    // Planned Outline
+    if (planned[i] > 0) {
+      const hPlanned = (planned[i] / maxMonthlyVisual) * chartH;
+      const byP = pad.top + chartH - hPlanned;
+
+      ctx.beginPath();
+      ctx.setLineDash([3, 4]);
+      ctx.strokeStyle = "rgba(167,139,250,0.6)";
+      ctx.lineWidth = 1.5;
+      ctx.roundRect(bx, byP, barW, hPlanned, [4, 4, 1, 1]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+
+  // ── Layer 2: Cumulative Lines (Smoothed) ───────────────────────────────────
+  function drawSmoothLine(data, colorStops, isDashed) {
+    const pts = [];
+    for (let i = 0; i < 12; i++) {
+      if (data[i] !== null) pts.push({ i, x: toX(i), y: toY_Right(data[i]), val: data[i] });
+    }
+    if (pts.length < 2) return;
+
+    // 1. Fill Path (Area)
+    const areaGrad = ctx.createLinearGradient(0, pad.top, 0, pad.top + chartH);
+    areaGrad.addColorStop(0, isDashed ? "rgba(139,92,246,0.15)" : "rgba(6,182,212,0.15)");
+    areaGrad.addColorStop(1, "rgba(0,0,0,0)");
+
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pad.top + chartH);
+    ctx.lineTo(pts[0].x, pts[0].y);
+
+    // Catmull-Rom Spline interpolation
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[Math.max(0, i - 1)];
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      const p3 = pts[Math.min(pts.length - 1, i + 2)];
+
+      const cp1x = p1.x + (p2.x - p0.x) / 6;
+      const cp1y = p1.y + (p2.y - p0.y) / 6;
+      const cp2x = p2.x - (p3.x - p1.x) / 6;
+      const cp2y = p2.y - (p3.y - p1.y) / 6;
+
+      ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+    }
+
+    ctx.lineTo(pts[pts.length - 1].x, pad.top + chartH);
+    ctx.closePath();
+    ctx.fillStyle = areaGrad;
+    ctx.fill();
+
+    // 2. Stroke Path
+    const strokeGrad = ctx.createLinearGradient(pad.left, 0, w - pad.right, 0);
+    colorStops.forEach((stop, idx) => strokeGrad.addColorStop(idx / (colorStops.length - 1), stop));
+
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[Math.max(0, i - 1)];
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      const p3 = pts[Math.min(pts.length - 1, i + 2)];
+
+      const cp1x = p1.x + (p2.x - p0.x) / 6;
+      const cp1y = p1.y + (p2.y - p0.y) / 6;
+      const cp2x = p2.x - (p3.x - p1.x) / 6;
+      const cp2y = p2.y - (p3.y - p1.y) / 6;
+
+      ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+    }
+
+    ctx.strokeStyle = strokeGrad;
+    ctx.lineWidth = 3;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+
+    if (isDashed) ctx.setLineDash([6, 8]);
+
+    ctx.shadowColor = isDashed ? "rgba(167,139,250,0.5)" : "rgba(6,182,212,0.5)";
+    ctx.shadowBlur = 12;
+    ctx.shadowOffsetY = 4;
+    ctx.stroke();
+    ctx.shadowColor = "transparent";
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+    ctx.setLineDash([]);
+
+    // 3. Points
+    pts.forEach((pt) => {
+      const isHovered = pt.i === hoverIndex;
+      const isLast = pt.i === pts.length - 1;
+
+      if (isHovered || isLast) {
         ctx.beginPath();
-        ctx.arc(pt.x, pt.y, 8, 0, Math.PI * 2);
-        ctx.fillStyle = glowColor;
+        const radius = isHovered ? 6 : 4;
+        ctx.arc(pt.x, pt.y, radius, 0, Math.PI * 2);
+        ctx.fillStyle = "#1e1e24";
         ctx.fill();
 
-        // Value label
-        ctx.fillStyle = lineColor;
-        ctx.fillText("£" + pt.val.toLocaleString(), pt.x, pt.y - 12);
+        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = colorStops[1];
+        ctx.stroke();
+
+        if (isHovered) {
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, 12, 0, Math.PI * 2);
+          ctx.fillStyle = isDashed ? "rgba(167,139,250,0.2)" : "rgba(6,182,212,0.2)";
+          ctx.fill();
+        }
       }
     });
   }
 
-  // Draw Planned total (purple, behind)
-  drawAreaLine(cumPlanned, "#a78bfa", "rgba(167,139,250,0.08)", "rgba(167,139,250,0.25)");
+  drawSmoothLine(cumPlanned, ["#a78bfa", "#c4b5fd"], true);
+  drawSmoothLine(cumActual, ["#06b6d4", "#22d3ee"], false);
 
-  // Draw Actual total (cyan, on top)
-  drawAreaLine(cumActual, "#06b6d4", "rgba(6,182,212,0.12)", "rgba(6,182,212,0.3)");
-}
+  // ── Tooltip Interaction ────────────────────────────────────────────────────
+  const tooltip = document.getElementById("chartTooltip");
+  if (!tooltip) return;
 
-function renderProgressChart() {
-  renderMonthlyBarChart();
-  renderCumulativeChart();
+  const onMouseMove = (e) => {
+    const r = canvas.getBoundingClientRect();
+    const x = (e.clientX - r.left) * (canvas.width / r.width / dpr);
+    const slotW = chartW / 12;
+
+    let idx = Math.floor((x - pad.left) / slotW);
+    idx = Math.max(0, Math.min(11, idx));
+
+    const centerX = toX(idx);
+    const isNearby = Math.abs(x - centerX) < slotW / 1.5;
+
+    if (!isNearby) {
+      if (hoverIndex !== -1) renderProgressChart(-1);
+      tooltip.classList.remove("visible");
+      return;
+    }
+
+    if (idx !== hoverIndex) {
+      renderProgressChart(idx);
+    }
+
+    const pMonth = planned[idx];
+    const aMonth = actual[idx];
+    const pCum = cumPlanned[idx];
+    const aCum = cumActual[idx];
+    const fmt = (v) => (v != null ? "\u00a3" + v.toLocaleString() : "—");
+
+    tooltip.innerHTML = `
+      <div class="chart-tooltip-month">${SHORT[idx]} ${state.progressYear}</div>
+      <div class="chart-tooltip-row">
+        <div class="chart-tooltip-dot" style="background:#a78bfa"></div>
+        <div class="chart-tooltip-label">M. Plan</div>
+        <div class="chart-tooltip-val">${fmt(pMonth)}</div>
+      </div>
+      <div class="chart-tooltip-row">
+        <div class="chart-tooltip-dot" style="background:#06b6d4"></div>
+        <div class="chart-tooltip-label">M. Actual</div>
+        <div class="chart-tooltip-val">${fmt(aMonth)}</div>
+      </div>
+      <div style="height:1px; background:rgba(255,255,255,0.1); margin:8px 0;"></div>
+      <div class="chart-tooltip-row">
+        <div class="chart-tooltip-dot" style="background:#c4b5fd"></div>
+        <div class="chart-tooltip-label">Total Plan</div>
+        <div class="chart-tooltip-val">${fmt(pCum)}</div>
+      </div>
+      <div class="chart-tooltip-row">
+        <div class="chart-tooltip-dot" style="background:#22d3ee"></div>
+        <div class="chart-tooltip-label">Total Saved</div>
+        <div class="chart-tooltip-val">${fmt(aCum)}</div>
+      </div>
+    `;
+
+    const tipRect = tooltip.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+    const cursorX = e.clientX - containerRect.left;
+    const cursorY = e.clientY - containerRect.top;
+
+    let tx = cursorX + 20;
+    let ty = cursorY + 20;
+    if (tx + tipRect.width > containerRect.width) tx = cursorX - tipRect.width - 20;
+    if (ty + tipRect.height > containerRect.height) ty = cursorY - tipRect.height - 20;
+
+    tooltip.style.left = tx + "px";
+    tooltip.style.top = ty + "px";
+    tooltip.classList.add("visible");
+  };
+
+  const onMouseLeave = () => {
+    if (hoverIndex !== -1) renderProgressChart(-1);
+    tooltip.classList.remove("visible");
+  };
+
+  canvas.onmousemove = onMouseMove;
+  canvas.onmouseleave = onMouseLeave;
 }
 
 function renderProgress() {
@@ -1266,6 +1330,30 @@ function wireEvents() {
     }
   });
 
+  // ── Accounts table — inline editing ──────────────────────────────────────
+  accountsTbody?.addEventListener("change", (e) => {
+    const target = e.target;
+    // Input or Select
+    if (target.matches("input[data-field], select[data-field]")) {
+      const row = target.closest("tr[data-account-id]");
+      if (!row) return;
+
+      const id = row.getAttribute("data-account-id");
+      const field = target.getAttribute("data-field");
+      const account = state.accounts.find((a) => a.id === id);
+
+      if (account && field) {
+        let val = target.value;
+        if (field === "balance") val = normalizeAmount(val);
+        if (field === "name" || field === "provider") val = val.trim();
+
+        account[field] = val;
+        renderApp();
+        saveState();
+      }
+    }
+  });
+
   // ── Progress table — inline editing ────────────────────────────────────────
   progressTbody?.addEventListener("change", (event) => {
     const target = event.target;
@@ -1299,31 +1387,35 @@ function wireEvents() {
   const addAccountCloseBtn = document.getElementById("addAccountCloseBtn");
 
   const acctSteps = [
-    document.getElementById("addAcctStep1"),
-    document.getElementById("addAcctStep2"),
-    document.getElementById("addAcctStep3"),
-    document.getElementById("addAcctStep4"),
+    document.getElementById("addAcctStep1"), // Type
+    document.getElementById("addAcctStep2"), // Name
+    document.getElementById("addAcctStep3"), // Owner
+    document.getElementById("addAcctStep4"), // Provider
+    document.getElementById("addAcctStep5"), // Balance
   ];
 
   const acctStepLabels = [
-    "Step 1 of 4 — Account name",
-    "Step 2 of 4 — Owner",
-    "Step 3 of 4 — Provider",
-    "Step 4 of 4 — Balance",
+    "Step 1 of 5 — Account type",
+    "Step 2 of 5 — Nickname",
+    "Step 3 of 5 — Owner",
+    "Step 4 of 5 — Provider",
+    "Step 5 of 5 — Balance",
   ];
 
-  const acctProgressPct = ["25%", "50%", "75%", "100%"];
+  const acctProgressPct = ["20%", "40%", "60%", "80%", "100%"];
 
   let acctWizardStep = 0;
+  let acctTypeSelected = "";
   let acctOwnerSelected = "";
 
   function resetAcctWizard() {
     acctWizardStep = 0;
+    acctTypeSelected = "";
     acctOwnerSelected = "";
     document.getElementById("newAcctName").value = "";
     document.getElementById("newAcctProvider").value = "";
     document.getElementById("newAcctBalance").value = "";
-    document.querySelectorAll("#ownerChoices .wizard-choice").forEach((btn) => btn.classList.remove("selected"));
+    document.querySelectorAll(".wizard-choice").forEach((btn) => btn.classList.remove("selected"));
     showAcctStep(0);
   }
 
@@ -1352,6 +1444,17 @@ function wireEvents() {
   addAccountCloseBtn?.addEventListener("click", () => addAccountWizard?.close());
   addAccountWizard?.addEventListener("click", (e) => { if (e.target === addAccountWizard) addAccountWizard.close(); });
 
+  // Type choice tiles
+  document.getElementById("typeChoices")?.addEventListener("click", (e) => {
+    const btn = e.target.closest(".wizard-choice");
+    if (!btn) return;
+    document.querySelectorAll("#typeChoices .wizard-choice").forEach((b) => b.classList.remove("selected"));
+    btn.classList.add("selected");
+    acctTypeSelected = btn.getAttribute("data-value") || "";
+    // Auto advance for type selection? Maybe better to let them confirm.
+    // addAccountNextBtn?.click(); 
+  });
+
   // Owner choice tiles
   document.getElementById("ownerChoices")?.addEventListener("click", (e) => {
     const btn = e.target.closest(".wizard-choice");
@@ -1371,8 +1474,19 @@ function wireEvents() {
   addAccountNextBtn?.addEventListener("click", () => {
     const nameInput = document.getElementById("newAcctName");
 
-    // Validate current step
+    // Step 1: Type
     if (acctWizardStep === 0) {
+      if (!acctTypeSelected) {
+        document.getElementById("typeChoices")?.querySelectorAll(".wizard-choice").forEach((b) => {
+          b.style.borderColor = "var(--danger)";
+          setTimeout(() => b.style.borderColor = "", 800);
+        });
+        return;
+      }
+    }
+
+    // Step 2: Name
+    if (acctWizardStep === 1) {
       if (!nameInput?.value.trim()) {
         nameInput?.classList.add("error");
         nameInput?.focus();
@@ -1381,9 +1495,9 @@ function wireEvents() {
       nameInput?.classList.remove("error");
     }
 
-    if (acctWizardStep === 1) {
+    // Step 3: Owner
+    if (acctWizardStep === 2) {
       if (!acctOwnerSelected) {
-        // Highlight choices area to nudge the user
         document.getElementById("ownerChoices")?.querySelectorAll(".wizard-choice").forEach((b) => {
           b.style.borderColor = "var(--danger)";
           setTimeout(() => b.style.borderColor = "", 800);
@@ -1399,19 +1513,23 @@ function wireEvents() {
     }
 
     // Final step — commit
+    const type = acctTypeSelected || "Other";
     const name = nameInput?.value.trim() || "New Account";
     const owner = acctOwnerSelected || "Joint";
     const provider = (document.getElementById("newAcctProvider")?.value || "").trim();
     const balance = normalizeAmount(document.getElementById("newAcctBalance")?.value || 0);
 
-    state.accounts.push({ id: makeId("acct"), name, provider, owner, balance });
+    state.accounts.push({ id: makeId("acct"), type, name, provider, owner, balance });
     renderApp();
+    saveState(); // Ensure we save!
     addAccountWizard?.close();
   });
 
   // Allow Enter to advance the wizard on text/number steps
   addAccountWizard?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && acctWizardStep !== 1) {
+    // Block enter on choice steps (0 and 2) if not focused? 
+    // Actually safe to just trigger click if they have valid input.
+    if (e.key === "Enter") {
       e.preventDefault();
       addAccountNextBtn?.click();
     }
@@ -1548,14 +1666,11 @@ function wireEvents() {
     const btn = event.target.closest("[data-filter-owner]");
     if (!btn) return;
     const owner = btn.getAttribute("data-filter-owner");
-    if (owner === "all") {
-      acctOwnerFilter = new Set(OWNERS);
+
+    if (acctOwnerFilter.has(owner)) {
+      if (acctOwnerFilter.size > 1) acctOwnerFilter.delete(owner);
     } else {
-      if (acctOwnerFilter.has(owner)) {
-        if (acctOwnerFilter.size > 1) acctOwnerFilter.delete(owner);
-      } else {
-        acctOwnerFilter.add(owner);
-      }
+      acctOwnerFilter.add(owner);
     }
     const derived = deriveState();
     renderAccounts(derived);
@@ -1760,6 +1875,9 @@ function wireEvents() {
 // ── Boot ───────────────────────────────────────────────────────────────────────
 
 function bootstrap() {
+  document.body.classList.add("entry-anim");
+  setTimeout(() => document.body.classList.remove("entry-anim"), 1000);
+
   renderApp();
   wireEvents();
   // Redraw chart on resize
