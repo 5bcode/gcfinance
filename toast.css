@@ -1,0 +1,110 @@
+/* ── Toast Notifications ────────────────────────────────────────────────── */
+
+.toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    z-index: 1000;
+    pointer-events: none;
+}
+
+.toast {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    border-radius: var(--radius-md);
+    background: var(--surface-strong);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--shadow-lg), 0 0 20px rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(12px);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    font-weight: 500;
+    pointer-events: auto;
+    animation: toast-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transform-origin: bottom right;
+    max-width: 320px;
+}
+
+.toast--success {
+    border-left: 4px solid var(--success);
+}
+
+.toast--info {
+    border-left: 4px solid var(--brand);
+}
+
+.toast--error {
+    border-left: 4px solid var(--danger);
+}
+
+.toast-icon {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    flex-shrink: 0;
+    font-size: 14px;
+}
+
+.toast--success .toast-icon {
+    background: var(--success-soft);
+    color: var(--success);
+}
+
+.toast--info .toast-icon {
+    background: var(--brand-soft);
+    color: var(--brand-light);
+}
+
+.toast--error .toast-icon {
+    background: var(--danger-soft);
+    color: var(--danger);
+}
+
+.toast-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.toast-title {
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--ink);
+}
+
+.toast-message {
+    font-size: 0.8rem;
+    color: var(--muted);
+}
+
+@keyframes toast-in {
+    from {
+        opacity: 0;
+        transform: translateX(20px) scale(0.9);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+    }
+}
+
+@keyframes toast-out {
+    to {
+        opacity: 0;
+        transform: translateX(20px) scale(0.9);
+    }
+}
+
+.toast.hiding {
+    animation: toast-out 0.3s ease forwards;
+}

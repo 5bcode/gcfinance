@@ -24,6 +24,7 @@
   <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
   <title>SavinCGs</title>
   <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="./toast.css" />
 </head>
 
 <body>
@@ -65,164 +66,294 @@
       </div>
     </header>
 
-    <!-- ── Summary cards ── -->
-    <section class="summary-grid" aria-label="Budget summary">
-      <article class="summary-card">
-        <p class="summary-label">Total funds</p>
-        <p class="summary-value" id="totalFundsValue">£0</p>
-        <p class="summary-note">Across all accounts</p>
-      </article>
-
-      <article class="summary-card highlight">
-        <p class="summary-label">Ready to assign</p>
-        <p class="summary-value" id="readyToAssignValue">£0</p>
-        <p class="summary-note">Unallocated cash</p>
-      </article>
-
-      <article class="summary-card">
-        <p class="summary-label">Assigned to goals</p>
-        <p class="summary-value" id="totalAssignedValue">£0</p>
-        <p class="summary-note">Money with jobs</p>
-      </article>
-
-      <article class="summary-card">
-        <p class="summary-label">Underfunded</p>
-        <p class="summary-value" id="underFundedValue">£0</p>
-        <p class="summary-note">Target gaps outstanding</p>
-      </article>
-
-      <article class="summary-card meter-card">
-        <div class="meter-head">
-          <p class="summary-label">Overall funding</p>
-          <p id="overallProgressValue" class="meter-value">0%</p>
-        </div>
-        <div class="meter-track" aria-hidden="true">
-          <span id="overallProgressBar" class="meter-fill"></span>
-        </div>
-        <p class="summary-note">Assigned vs total targets</p>
-      </article>
-    </section>
-
-    <!-- ── Main workspace ── -->
-    <div class="workspace-grid">
-      <div class="workspace-column">
-
-        <!-- Accounts -->
-        <section class="block" aria-labelledby="accountsHeading">
-          <div class="block-head">
-            <div class="block-head-left">
-              <span class="block-head-icon icon-purple" aria-hidden="true">🏦</span>
-              <h2 id="accountsHeading">Accounts</h2>
-            </div>
-            <div style="display:flex;gap:8px;align-items:center;">
-              <button id="acctEditBtn" class="btn btn-ghost" type="button">✏ Edit</button>
-              <button id="addAccountBtn" class="btn btn-secondary" type="button">+ Add account</button>
-            </div>
-          </div>
-          <p class="block-note">Track each person's account separately, then combine for planning.</p>
-
-          <div id="accountFilterBar" class="account-filter-bar"></div>
-
-          <div class="table-wrap">
-            <table id="accountsTable" class="accounts-table" data-edit="false">
-              <colgroup>
-                <col style="width:18%">
-                <col style="width:22%">
-                <col style="width:18%">
-                <col style="width:16%">
-                <col style="width:16%">
-                <col style="width:10%">
-              </colgroup>
-              <thead>
-                <tr>
-                  <th>Owner</th>
-                  <th>Provider</th>
-                  <th>Balance</th>
-                  <th>Assigned</th>
-                  <th>Available</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody id="accountsTbody"></tbody>
-            </table>
-          </div>
-        </section>
-
-        <!-- Assign money -->
-        <section class="block" aria-labelledby="allocatorHeading">
-          <div class="block-head">
-            <div class="block-head-left">
-              <span class="block-head-icon icon-teal" aria-hidden="true">⚡</span>
-              <h2 id="allocatorHeading">Assign money</h2>
-            </div>
-            <button id="autoAssignBtn" class="btn btn-secondary" type="button">✦ Auto-assign</button>
-          </div>
-
-          <form id="allocationForm" class="allocator-form">
-            <label for="allocationAccount">From account</label>
-            <select id="allocationAccount" required></select>
-
-            <label for="allocationSubgoal">To sub-goal</label>
-            <select id="allocationSubgoal" required></select>
-
-            <label for="allocationAmount">Amount (£)</label>
-            <input id="allocationAmount" type="number" min="0" step="50" placeholder="e.g. 500" required />
-
-            <button class="btn btn-primary" type="submit">Assign funds →</button>
-          </form>
-
-          <p id="allocatorMessage" class="allocator-message" aria-live="polite"></p>
-        </section>
-
-        <!-- Allocation ledger -->
-        <section class="block" aria-labelledby="ledgerHeading">
-          <div class="block-head">
-            <div class="block-head-left">
-              <span class="block-head-icon icon-amber" aria-hidden="true">📋</span>
-              <h2 id="ledgerHeading">Allocation ledger</h2>
-            </div>
-          </div>
-          <p class="block-note">Edit or remove any allocation to re-balance instantly.</p>
-
-          <div class="table-wrap">
-            <table>
-              <colgroup>
-                <col style="width:33%">
-                <col style="width:33%">
-                <col style="width:22%">
-                <col style="width:12%">
-              </colgroup>
-              <thead>
-                <tr>
-                  <th>Account</th>
-                  <th>Goal / Sub-goal</th>
-                  <th>Amount</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody id="allocationsTbody"></tbody>
-            </table>
-          </div>
-        </section>
-
-      </div>
-
-      <!-- Goals -->
-      <section class="block goals-panel" aria-labelledby="goalsHeading">
-        <div class="block-head">
-          <div class="block-head-left">
-            <span class="block-head-icon icon-purple" aria-hidden="true">🎯</span>
-            <h2 id="goalsHeading">Goals &amp; sub-goals</h2>
-          </div>
-          <button id="addGoalBtn" class="btn btn-secondary" type="button">+ Add goal</button>
-        </div>
-        <p class="block-note">Example: House goal with Deposit, Solicitor Fees, and Moving Costs sub-goals.</p>
-
-        <div id="goalBoard" class="goal-board"></div>
-      </section>
+    <!-- ── Tab bar ── -->
+    <div class="tab-bar" role="tablist">
+      <button class="tab-btn active" data-tab="dashboard" role="tab" aria-selected="true">📊 Dashboard</button>
+      <button class="tab-btn" data-tab="progress" role="tab" aria-selected="false">📈 Progress</button>
     </div>
 
-  </div>
+    <!-- ── Dashboard panel ── -->
+    <div class="tab-panel active" data-tab-panel="dashboard">
+
+      <!-- ── Summary cards ── -->
+      <section class="summary-grid" aria-label="Budget summary">
+        <article class="summary-card">
+          <p class="summary-label">Total funds</p>
+          <p class="summary-value" id="totalFundsValue">£0</p>
+          <p class="summary-note">Across all accounts</p>
+        </article>
+
+        <article class="summary-card highlight">
+          <p class="summary-label">Ready to assign</p>
+          <p class="summary-value" id="readyToAssignValue">£0</p>
+          <p class="summary-note">Unallocated cash</p>
+        </article>
+
+        <article class="summary-card">
+          <p class="summary-label">Assigned to goals</p>
+          <p class="summary-value" id="totalAssignedValue">£0</p>
+          <p class="summary-note">Money with jobs</p>
+        </article>
+
+        <article class="summary-card">
+          <p class="summary-label">Underfunded</p>
+          <p class="summary-value" id="underFundedValue">£0</p>
+          <p class="summary-note">Target gaps outstanding</p>
+        </article>
+
+        <article class="summary-card meter-card">
+          <div class="meter-head">
+            <p class="summary-label">Overall funding</p>
+            <p id="overallProgressValue" class="meter-value">0%</p>
+          </div>
+          <div class="meter-track" aria-hidden="true">
+            <span id="overallProgressBar" class="meter-fill"></span>
+          </div>
+          <p class="summary-note">Assigned vs total targets</p>
+        </article>
+      </section>
+
+      <!-- ── Main workspace ── -->
+      <div class="workspace-grid">
+        <div class="workspace-column">
+
+          <!-- Accounts -->
+          <section class="block" aria-labelledby="accountsHeading">
+            <div class="block-head">
+              <div class="block-head-left">
+                <span class="block-head-icon icon-purple" aria-hidden="true">🏦</span>
+                <h2 id="accountsHeading">Accounts</h2>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <button id="acctEditBtn" class="btn btn-ghost" type="button">✏ Edit</button>
+                <button id="addAccountBtn" class="btn btn-secondary" type="button">+ Add account</button>
+              </div>
+            </div>
+            <p class="block-note">Track each person's account separately, then combine for planning.</p>
+
+            <div id="accountFilterBar" class="account-filter-bar"></div>
+
+            <div class="table-wrap">
+              <table id="accountsTable" class="accounts-table" data-edit="false">
+                <colgroup>
+                  <col style="width:18%">
+                  <col style="width:22%">
+                  <col style="width:18%">
+                  <col style="width:16%">
+                  <col style="width:16%">
+                  <col style="width:10%">
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th>Owner</th>
+                    <th>Provider</th>
+                    <th>Balance</th>
+                    <th>Assigned</th>
+                    <th>Available</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="accountsTbody"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- Assign money -->
+          <section class="block" aria-labelledby="allocatorHeading">
+            <div class="block-head">
+              <div class="block-head-left">
+                <span class="block-head-icon icon-teal" aria-hidden="true">⚡</span>
+                <h2 id="allocatorHeading">Assign money</h2>
+              </div>
+              <button id="autoAssignBtn" class="btn btn-secondary" type="button">✦ Auto-assign</button>
+            </div>
+
+            <form id="allocationForm" class="allocator-form">
+              <label for="allocationAccount">From account</label>
+              <select id="allocationAccount" required></select>
+
+              <label for="allocationSubgoal">To sub-goal</label>
+              <select id="allocationSubgoal" required></select>
+
+              <label for="allocationAmount">Amount (£)</label>
+              <input id="allocationAmount" type="number" min="0" step="50" placeholder="e.g. 500" required />
+
+              <button class="btn btn-primary" type="submit">Assign funds →</button>
+            </form>
+
+            <p id="allocatorMessage" class="allocator-message" aria-live="polite"></p>
+          </section>
+
+          <!-- Allocation ledger -->
+          <section class="block" aria-labelledby="ledgerHeading">
+            <div class="block-head">
+              <div class="block-head-left">
+                <span class="block-head-icon icon-amber" aria-hidden="true">📋</span>
+                <h2 id="ledgerHeading">Allocation ledger</h2>
+              </div>
+            </div>
+            <p class="block-note">Edit or remove any allocation to re-balance instantly.</p>
+
+            <div class="table-wrap">
+              <table>
+                <colgroup>
+                  <col style="width:33%">
+                  <col style="width:33%">
+                  <col style="width:22%">
+                  <col style="width:12%">
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th>Account</th>
+                    <th>Goal / Sub-goal</th>
+                    <th>Amount</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="allocationsTbody"></tbody>
+              </table>
+            </div>
+          </section>
+
+        </div>
+
+        <!-- Goals -->
+        <section class="block goals-panel" aria-labelledby="goalsHeading">
+          <div class="block-head">
+            <div class="block-head-left">
+              <span class="block-head-icon icon-purple" aria-hidden="true">🎯</span>
+              <h2 id="goalsHeading">Goals &amp; sub-goals</h2>
+            </div>
+            <button id="addGoalBtn" class="btn btn-secondary" type="button">+ Add goal</button>
+          </div>
+          <p class="block-note">Example: House goal with Deposit, Solicitor Fees, and Moving Costs sub-goals.</p>
+
+          <div id="goalBoard" class="goal-board"></div>
+        </section>
+      </div>
+
+    </div><!-- /dashboard panel -->
+
+    <!-- ── Progress panel ── -->
+    <div class="tab-panel" data-tab-panel="progress">
+
+      <!-- Progress hero stats -->
+      <div class="progress-hero" id="progressHero">
+        <article class="progress-stat-card">
+          <div class="progress-stat-icon" aria-hidden="true">🎯</div>
+          <p class="progress-stat-label">Year Target</p>
+          <p class="progress-stat-value" id="progStatPlanned">£0</p>
+          <p class="progress-stat-sub">Total planned savings</p>
+        </article>
+        <article class="progress-stat-card progress-stat-card--accent">
+          <div class="progress-stat-icon" aria-hidden="true">�</div>
+          <p class="progress-stat-label">Saved So Far</p>
+          <p class="progress-stat-value" id="progStatActual">£0</p>
+          <div class="progress-stat-meter">
+            <div class="progress-stat-meter-fill" id="progStatMeter"></div>
+          </div>
+          <p class="progress-stat-sub" id="progStatPct">0% of target</p>
+        </article>
+        <article class="progress-stat-card" id="progStatDiffCard">
+          <div class="progress-stat-icon" aria-hidden="true">📊</div>
+          <p class="progress-stat-label">Variance</p>
+          <p class="progress-stat-value" id="progStatDiff">—</p>
+          <p class="progress-stat-sub" id="progStatDiffNote">On track</p>
+        </article>
+      </div>
+
+      <!-- Motivational banner -->
+      <div class="progress-motivation" id="progressMotivation">
+        <span class="progress-motivation-emoji" aria-hidden="true">🚀</span>
+        <p class="progress-motivation-text" id="progressMotivationText">Start entering your planned savings for each
+          month to track your journey!</p>
+      </div>
+
+      <!-- Monthly bar chart -->
+      <section class="block progress-chart-block" aria-labelledby="chartHeading">
+        <div class="block-head">
+          <div class="block-head-left">
+            <span class="block-head-icon icon-purple" aria-hidden="true">�</span>
+            <h2 id="chartHeading">Monthly Savings</h2>
+          </div>
+          <div class="chart-legend">
+            <span class="chart-legend-item chart-legend-planned"><span class="chart-legend-swatch"></span>
+              Planned</span>
+            <span class="chart-legend-item chart-legend-actual"><span class="chart-legend-swatch"></span> Actual</span>
+          </div>
+        </div>
+        <div class="progress-chart-container">
+          <canvas id="monthlyBarChart" width="900" height="280"></canvas>
+        </div>
+      </section>
+
+      <!-- Cumulative total chart -->
+      <section class="block progress-chart-block" aria-labelledby="cumChartHeading">
+        <div class="block-head">
+          <div class="block-head-left">
+            <span class="block-head-icon icon-teal" aria-hidden="true">📈</span>
+            <h2 id="cumChartHeading">Total Saved Over Time</h2>
+          </div>
+          <div class="chart-legend">
+            <span class="chart-legend-item"><span class="chart-legend-swatch"
+                style="background:linear-gradient(90deg,#a78bfa,#c4b5fd); height:4px; box-shadow:0 0 6px rgba(167,139,250,0.4);"></span>
+              Total Planned</span>
+            <span class="chart-legend-item"><span class="chart-legend-swatch"
+                style="background:linear-gradient(90deg,#06b6d4,#22d3ee); height:4px; box-shadow:0 0 6px rgba(6,182,212,0.4);"></span>
+              Total Saved</span>
+          </div>
+        </div>
+        <div class="progress-chart-container">
+          <canvas id="cumulativeChart" width="900" height="280"></canvas>
+        </div>
+      </section>
+
+      <section class="block progress-block" aria-labelledby="progressHeading">
+        <div class="block-head">
+          <div class="block-head-left">
+            <span class="block-head-icon icon-teal" aria-hidden="true">📈</span>
+            <h2 id="progressHeading">Monthly Breakdown — <span id="progressYearLabel">2026</span></h2>
+          </div>
+        </div>
+
+        <div class="table-wrap progress-table-wrap">
+          <table class="progress-table">
+            <colgroup>
+              <col style="width:10%">
+              <col style="width:12%">
+              <col style="width:12%">
+              <col style="width:12%">
+              <col style="width:12%">
+              <col style="width:12%">
+              <col style="width:30%">
+            </colgroup>
+            <thead>
+              <tr>
+                <th rowspan="2" style="vertical-align:bottom">Month</th>
+                <th colspan="2"
+                  style="text-align:center; border-bottom:1px solid rgba(255,255,255,0.05); color:var(--brand-light)">
+                  Gary</th>
+                <th colspan="2"
+                  style="text-align:center; border-bottom:1px solid rgba(255,255,255,0.05); color:var(--accent)">
+                  Catherine</th>
+                <th rowspan="2" class="number" style="vertical-align:bottom">Total (+/−)</th>
+                <th rowspan="2" style="vertical-align:bottom">Notes</th>
+              </tr>
+              <tr>
+                <th class="number" style="font-size:0.65rem; opacity:0.8">Planned</th>
+                <th class="number" style="font-size:0.65rem; opacity:0.8">Actual</th>
+                <th class="number" style="font-size:0.65rem; opacity:0.8">Planned</th>
+                <th class="number" style="font-size:0.65rem; opacity:0.8">Actual</th>
+              </tr>
+            </thead>
+            <tbody id="progressTbody"></tbody>
+            <tfoot id="progressTfoot"></tfoot>
+          </table>
+        </div>
+      </section>
+    </div><!-- /progress panel -->
+
+  </div><!-- /page-shell -->
 
   <!-- ── Add Account Wizard ── -->
   <dialog id="addAccountWizard" class="wizard-dialog">
@@ -243,7 +374,8 @@
       <!-- Step 1: Name -->
       <div class="wizard-step" id="addAcctStep1">
         <label class="wizard-label" for="newAcctName">What do you call this account?</label>
-        <input id="newAcctName" type="text" class="wizard-input" placeholder="e.g. Current Account, Savings, ISA…" maxlength="60" autocomplete="off" />
+        <input id="newAcctName" type="text" class="wizard-input" placeholder="e.g. Current Account, Savings, ISA…"
+          maxlength="60" autocomplete="off" />
         <p class="wizard-hint">Give it a friendly name you'll recognise at a glance.</p>
       </div>
 
@@ -261,7 +393,8 @@
       <!-- Step 3: Provider -->
       <div class="wizard-step" id="addAcctStep3" hidden>
         <label class="wizard-label" for="newAcctProvider">Which bank or provider?</label>
-        <input id="newAcctProvider" type="text" class="wizard-input" placeholder="e.g. Monzo, Barclays, Nationwide…" maxlength="60" autocomplete="off" />
+        <input id="newAcctProvider" type="text" class="wizard-input" placeholder="e.g. Monzo, Barclays, Nationwide…"
+          maxlength="60" autocomplete="off" />
         <p class="wizard-hint">Optional — leave blank if you'd rather add it later.</p>
       </div>
 
@@ -298,20 +431,23 @@
       <!-- Step 1: Goal name -->
       <div class="wizard-step" id="addGoalStep1">
         <label class="wizard-label" for="newGoalName">What is this goal called?</label>
-        <input id="newGoalName" type="text" class="wizard-input" placeholder="e.g. House Purchase, Holiday, Emergency Fund…" maxlength="80" autocomplete="off" />
+        <input id="newGoalName" type="text" class="wizard-input"
+          placeholder="e.g. House Purchase, Holiday, Emergency Fund…" maxlength="80" autocomplete="off" />
         <p class="wizard-hint">A clear name helps you stay motivated.</p>
       </div>
 
       <!-- Step 2: First sub-goal name -->
       <div class="wizard-step" id="addGoalStep2" hidden>
         <label class="wizard-label" for="newSubGoalName">Name your first sub-goal</label>
-        <input id="newSubGoalName" type="text" class="wizard-input" placeholder="e.g. Deposit, Flights, 6-Month Buffer…" maxlength="80" autocomplete="off" />
+        <input id="newSubGoalName" type="text" class="wizard-input" placeholder="e.g. Deposit, Flights, 6-Month Buffer…"
+          maxlength="80" autocomplete="off" />
         <p class="wizard-hint">Every goal needs at least one sub-goal to track progress against.</p>
       </div>
 
       <!-- Step 3: First sub-goal target -->
       <div class="wizard-step" id="addGoalStep3" hidden>
-        <label class="wizard-label" for="newSubGoalTarget">Target amount for "<span id="newSubGoalNamePreview"></span>" (£)</label>
+        <label class="wizard-label" for="newSubGoalTarget">Target amount for "<span id="newSubGoalNamePreview"></span>"
+          (£)</label>
         <input id="newSubGoalTarget" type="number" class="wizard-input" min="0" step="100" placeholder="e.g. 5000" />
         <p class="wizard-hint">You can add more sub-goals and adjust targets after creation.</p>
       </div>
@@ -327,7 +463,8 @@
   <dialog id="resetDialog" class="confirm-dialog">
     <div class="confirm-dialog-inner">
       <h3>Reset all data?</h3>
-      <p>This will remove all your accounts, goals, and allocations and restore the example data. This cannot be undone.
+      <p>This will remove all your accounts, goals, and allocations and restore the example data. This cannot be
+        undone.
       </p>
       <div class="confirm-dialog-actions">
         <button id="resetCancelBtn" class="btn btn-secondary" type="button">Cancel</button>
@@ -336,6 +473,7 @@
     </div>
   </dialog>
 
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
   <script src="./app.js"></script>
 </body>
 

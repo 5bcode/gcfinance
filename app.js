@@ -8,6 +8,11 @@ const STORAGE_KEY = "gcfinance-v1";
 
 const OWNERS = ["Gary", "Catherine", "Joint"];
 
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
 const DEFAULT_DATA = {
   accounts: [
     { id: "acct-gary-current", name: "Current Account", provider: "Monzo", owner: "Gary", balance: 0 },
@@ -45,6 +50,8 @@ const DEFAULT_DATA = {
     },
   ],
   allocations: [],
+  monthlyProgress: MONTHS.map((month) => ({ month, plannedGary: 0, actualGary: 0, plannedCat: 0, actualCat: 0, notes: "" })),
+  progressYear: new Date().getFullYear(),
 };
 
 // ── State ──────────────────────────────────────────────────────────────────────
@@ -55,6 +62,13 @@ function loadState() {
     if (stored) {
       const parsed = JSON.parse(stored);
       if (parsed && Array.isArray(parsed.accounts) && Array.isArray(parsed.goals) && Array.isArray(parsed.allocations)) {
+        // Backfill monthlyProgress for old data
+        if (!Array.isArray(parsed.monthlyProgress)) {
+          parsed.monthlyProgress = MONTHS.map((month) => ({ month, planned: 0, actual: 0, notes: "" }));
+        }
+        if (!parsed.progressYear) {
+          parsed.progressYear = new Date().getFullYear();
+        }
         return parsed;
       }
     }
@@ -127,7 +141,81 @@ function ownerSelectHtml(selected, label) {
   ).join("")}</select>`;
 }
 
-// ── Sanitise & derive ──────────────────────────────────────────────────────────
+// ── Animations & Feedback ────────────────────────────────────────────────────
+function triggerConfetti() {
+  if (typeof confetti === "function") {
+    confetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { y: 0.6 },
+      colors: ["#7c3aed", "#10b981", "#06b6d4"],
+    });
+  }
+}
+
+function showToast(title, message, type = "success") {
+  let container = document.querySelector(".toast-container");
+  if (!container) {
+    container = document.createElement("div");
+    container.className = "toast-container";
+    document.body.appendChild(container);
+  }
+
+  const toast = document.createElement("div");
+  toast.className = `toast toast--${type}`;
+
+  const iconMap = {
+    success: "✓",
+    info: "ℹ",
+    error: "✕",
+  };
+
+  toast.innerHTML = `
+    <div class="toast-icon">${iconMap[type] || "•"}</div>
+    <div class="toast-body">
+      <div class="toast-title">${escapeHtml(title)}</div>
+      <div class="toast-message">${escapeHtml(message)}</div>
+    </div>
+  `;
+
+  container.appendChild(toast);
+
+  // Auto remove
+  setTimeout(() => {
+    toast.classList.add("hiding");
+    toast.addEventListener("animationend", () => toast.remove());
+  }, 4000);
+}
+
+function animateValue(id, start, end, duration = 800) {
+  const obj = document.getElementById(id);
+  if (!obj) return;
+
+  // Use a data attribute to store the current displayed value to avoid jumps
+  const current = parseFloat(obj.getAttribute("data-value")) || start;
+  if (current === end) return;
+
+  let startTimestamp = null;
+  const step = (timestamp) => {
+    if (!startTimestamp) startTimestamp = timestamp;
+    const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+
+    // Ease out quart
+    const ease = 1 - Math.pow(1 - progress, 4);
+
+    const val = current + (end - current) * ease;
+    obj.innerHTML = GBP.format(val);
+    obj.setAttribute("data-value", val);
+
+    if (progress < 1) {
+      window.requestAnimationFrame(step);
+    } else {
+      obj.innerHTML = GBP.format(end);
+    }
+  };
+  window.requestAnimationFrame(step);
+}
+
 
 function sanitizeState() {
   const accountIds = new Set();
@@ -173,6 +261,26 @@ function sanitizeState() {
     .filter((allocation) => {
       return allocation.amount > 0 && accountIds.has(allocation.accountId) && subGoalIds.has(allocation.subGoalId);
     });
+
+  // Sanitise monthly progress
+  if (!Array.isArray(state.monthlyProgress) || state.monthlyProgress.length !== 12) {
+    state.monthlyProgress = MONTHS.map((month) => ({ month, planned: 0, actual: 0, notes: "" }));
+  }
+  state.monthlyProgress = state.monthlyProgress.map((entry, i) => {
+    // Default to existing values (migration) or 0
+    // We map legacy 'planned'/'actual' to Gary's column to preserve totals in charts
+    const pGary = entry.plannedGary ?? entry.planned ?? 0;
+    const aGary = entry.actualGary ?? entry.actual ?? 0;
+    return {
+      month: MONTHS[i],
+      plannedGary: normalizeAmount(pGary),
+      actualGary: normalizeAmount(aGary),
+      plannedCat: normalizeAmount(entry.plannedCat),
+      actualCat: normalizeAmount(entry.actualCat),
+      notes: String(entry.notes || "").trim(),
+    };
+  });
+  if (!state.progressYear) state.progressYear = new Date().getFullYear();
 }
 
 function deriveState() {
@@ -236,10 +344,8 @@ function deriveState() {
 // ── Render ─────────────────────────────────────────────────────────────────────
 
 function setAllocatorMessage(text, type = "success") {
-  const message = document.getElementById("allocatorMessage");
-  if (!message) return;
-  message.textContent = text;
-  message.className = `allocator-message ${type}`;
+  // Deprecated in favour of toasts, but kept for fallback or specific inline uses if needed
+  // showToast(type === "warn" ? "Attention" : "Update", text, type === "warn" ? "error" : "success");
 }
 
 function renderSummary(derived) {
@@ -249,17 +355,36 @@ function renderSummary(derived) {
   };
 
   setText("asOfDate", dateLabel());
-  setText("totalFundsValue", GBP.format(derived.totalFunds));
-  setText("readyToAssignValue", GBP.format(derived.readyToAssign));
-  setText("totalAssignedValue", GBP.format(derived.totalAssigned));
-  setText("underFundedValue", GBP.format(derived.underFunded));
-  setText("overallProgressValue", `${derived.overallProgress}%`);
+  /* 
+   * Use simplified animation approach:
+   * We store previous values in a closure or global cache would be better, 
+   * but reading DOM data-value attribute is sufficient for this simple app.
+   */
+  const updateMetric = (id, val) => animateValue(id, 0, val);
+
+  setText("asOfDate", dateLabel());
+  updateMetric("totalFundsValue", derived.totalFunds);
+
+  // Special handling for Ready To Assign to emphasize 0 (good job) or positive (task to do)
+  const readyVal = derived.readyToAssign;
+  updateMetric("readyToAssignValue", readyVal);
+
+  updateMetric("totalAssignedValue", derived.totalAssigned);
+  updateMetric("underFundedValue", derived.underFunded);
+
+  // Animate percentage
+  const progEl = document.getElementById("overallProgressValue");
+  if (progEl) {
+    /* Simple text update for % for now, could animate too */
+    progEl.textContent = `${derived.overallProgress}%`;
+  }
 
   const meter = document.getElementById("overallProgressBar");
   if (meter) meter.style.width = `${derived.overallProgress}%`;
 
   const ready = document.getElementById("readyToAssignValue");
   if (ready) ready.classList.toggle("negative", derived.readyToAssign < 0);
+
 }
 
 // Owner colour tokens used in the table
@@ -322,8 +447,8 @@ function renderAccounts(derived) {
 
           const ownerCell = acctEditMode
             ? `<select data-field="owner" class="owner-pill owner-pill--${ownerKey}" aria-label="Account owner">${OWNERS.map(
-                (o) => `<option value="${o}"${o === account.owner ? " selected" : ""}>${escapeHtml(o)}</option>`
-              ).join("")}</select>`
+              (o) => `<option value="${o}"${o === account.owner ? " selected" : ""}>${escapeHtml(o)}</option>`
+            ).join("")}</select>`
             : `<span class="owner-pill-label owner-pill-label--${ownerKey}">${escapeHtml(account.owner)}</span>`;
 
           const providerCell = acctEditMode
@@ -521,6 +646,473 @@ function renderGoals(derived) {
     .join("");
 }
 
+// ── Charts ─────────────────────────────────────────────────────────────────────
+
+function setupCanvas(canvas, desiredHeight) {
+  const container = canvas.parentElement;
+  const dpr = window.devicePixelRatio || 1;
+  const rect = container.getBoundingClientRect();
+  if (rect.width === 0) return null; // hidden tab
+  canvas.width = rect.width * dpr;
+  canvas.height = desiredHeight * dpr;
+  canvas.style.width = rect.width + "px";
+  canvas.style.height = desiredHeight + "px";
+  const ctx = canvas.getContext("2d");
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, rect.width, desiredHeight);
+  return { ctx, w: rect.width, h: desiredHeight };
+}
+
+function renderMonthlyBarChart() {
+  const canvas = document.getElementById("monthlyBarChart");
+  if (!canvas) return;
+  const setup = setupCanvas(canvas, 280);
+  if (!setup) return;
+  const { ctx, w, h } = setup;
+
+  const pad = { top: 24, right: 20, bottom: 40, left: 56 };
+  const chartW = w - pad.left - pad.right;
+  const chartH = h - pad.top - pad.bottom;
+
+  const SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const planned = state.monthlyProgress.map((e) => (e.plannedGary || 0) + (e.plannedCat || 0));
+  const actual = state.monthlyProgress.map((e) => (e.actualGary || 0) + (e.actualCat || 0));
+  const maxVal = Math.max(1, ...planned, ...actual) * 1.15;
+  const currentMonth = new Date().getMonth();
+
+  const slotW = chartW / 12;
+  const barW = Math.min(slotW * 0.32, 28);
+  const gap = Math.max(2, barW * 0.15);
+  const toX = (i) => pad.left + slotW * i + slotW / 2;
+  const toY = (v) => pad.top + chartH - (v / maxVal) * chartH;
+
+  // Grid lines & Left Y-axis labels
+  ctx.strokeStyle = "rgba(255,255,255,0.05)";
+  ctx.lineWidth = 1;
+  ctx.fillStyle = "#64748b";
+  ctx.font = "600 10px Inter, sans-serif";
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  const gridCount = 5;
+  for (let i = 0; i <= gridCount; i++) {
+    const val = Math.round((maxVal / gridCount) * i);
+    const y = toY(val);
+    ctx.beginPath();
+    ctx.moveTo(pad.left, y);
+    ctx.lineTo(w - pad.right, y);
+    ctx.stroke();
+    if (i > 0) ctx.fillText("£" + val.toLocaleString(), pad.left - 8, y);
+  }
+
+  // X-axis labels
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  SHORT.forEach((label, i) => {
+    const x = toX(i);
+    const isCurrent = i === currentMonth;
+    ctx.fillStyle = isCurrent ? "#a78bfa" : "#64748b";
+    ctx.font = isCurrent ? "700 11px Inter, sans-serif" : "600 11px Inter, sans-serif";
+    ctx.fillText(label, x, h - pad.bottom + 8);
+  });
+
+  // Current month subtle highlight
+  ctx.fillStyle = "rgba(124, 58, 237, 0.04)";
+  ctx.beginPath();
+  ctx.roundRect(toX(currentMonth) - slotW / 2, pad.top, slotW, chartH, 4);
+  ctx.fill();
+
+  // Draw bars
+  const baseline = pad.top + chartH;
+
+  for (let i = 0; i < 12; i++) {
+    const x = toX(i);
+    const isFuture = i > currentMonth;
+
+    // Planned bar (left)
+    const pHeight = (planned[i] / maxVal) * chartH;
+    if (planned[i] > 0) {
+      const bx = x - gap / 2 - barW;
+      const by = baseline - pHeight;
+      const grad = ctx.createLinearGradient(0, by, 0, baseline);
+      grad.addColorStop(0, isFuture ? "rgba(167,139,250,0.25)" : "rgba(167,139,250,0.6)");
+      grad.addColorStop(1, isFuture ? "rgba(167,139,250,0.08)" : "rgba(167,139,250,0.15)");
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.roundRect(bx, by, barW, pHeight, [4, 4, 0, 0]);
+      ctx.fill();
+      ctx.fillStyle = isFuture ? "rgba(167,139,250,0.3)" : "#a78bfa";
+      ctx.beginPath();
+      ctx.roundRect(bx, by, barW, 3, [4, 4, 0, 0]);
+      ctx.fill();
+    }
+
+    // Actual bar (right)
+    const aHeight = (actual[i] / maxVal) * chartH;
+    if (actual[i] > 0) {
+      const bx = x + gap / 2;
+      const by = baseline - aHeight;
+      const grad = ctx.createLinearGradient(0, by, 0, baseline);
+      grad.addColorStop(0, "rgba(6,182,212,0.7)");
+      grad.addColorStop(1, "rgba(6,182,212,0.15)");
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.roundRect(bx, by, barW, aHeight, [4, 4, 0, 0]);
+      ctx.fill();
+      ctx.fillStyle = "#06b6d4";
+      ctx.beginPath();
+      ctx.roundRect(bx, by, barW, 3, [4, 4, 0, 0]);
+      ctx.fill();
+    }
+
+    // Value labels on top of bars
+    ctx.font = "600 9px Inter, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "bottom";
+    if (planned[i] > 0 && pHeight > 18) {
+      ctx.fillStyle = isFuture ? "rgba(167,139,250,0.5)" : "#c4b5fd";
+      ctx.fillText("£" + planned[i].toLocaleString(), x - gap / 2 - barW / 2, baseline - pHeight - 4);
+    }
+    if (actual[i] > 0 && aHeight > 18) {
+      ctx.fillStyle = "#22d3ee";
+      ctx.fillText("£" + actual[i].toLocaleString(), x + gap / 2 + barW / 2, baseline - aHeight - 4);
+    }
+  }
+}
+
+function renderCumulativeChart() {
+  const canvas = document.getElementById("cumulativeChart");
+  if (!canvas) return;
+  const setup = setupCanvas(canvas, 280);
+  if (!setup) return;
+  const { ctx, w, h } = setup;
+
+  const pad = { top: 24, right: 20, bottom: 40, left: 56 };
+  const chartW = w - pad.left - pad.right;
+  const chartH = h - pad.top - pad.bottom;
+
+  const SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const planned = state.monthlyProgress.map((e) => (e.plannedGary || 0) + (e.plannedCat || 0));
+  const actual = state.monthlyProgress.map((e) => (e.actualGary || 0) + (e.actualCat || 0));
+  const currentMonth = new Date().getMonth();
+
+  // Build cumulative arrays
+  let cumP = 0, cumA = 0;
+  const cumPlanned = [];
+  const cumActual = [];
+  for (let i = 0; i < 12; i++) {
+    cumP += planned[i];
+    cumA += actual[i];
+    cumPlanned.push(cumP);
+    if (i <= currentMonth || actual[i] > 0) {
+      cumActual.push(cumA);
+    } else {
+      cumActual.push(null);
+    }
+  }
+
+  const maxVal = Math.max(1, cumP, cumA) * 1.1;
+  const xStep = chartW / 11;
+  const toX = (i) => pad.left + i * xStep;
+  const toY = (v) => pad.top + chartH - (v / maxVal) * chartH;
+
+  // Grid lines & Y-axis labels
+  ctx.strokeStyle = "rgba(255,255,255,0.05)";
+  ctx.lineWidth = 1;
+  ctx.fillStyle = "#64748b";
+  ctx.font = "600 10px Inter, sans-serif";
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  const gridCount = 5;
+  for (let i = 0; i <= gridCount; i++) {
+    const val = Math.round((maxVal / gridCount) * i);
+    const y = toY(val);
+    ctx.beginPath();
+    ctx.moveTo(pad.left, y);
+    ctx.lineTo(w - pad.right, y);
+    ctx.stroke();
+    if (i > 0) ctx.fillText("£" + val.toLocaleString(), pad.left - 8, y);
+  }
+
+  // X-axis labels
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  SHORT.forEach((label, i) => {
+    const x = toX(i);
+    const isCurrent = i === currentMonth;
+    ctx.fillStyle = isCurrent ? "#a78bfa" : "#64748b";
+    ctx.font = isCurrent ? "700 11px Inter, sans-serif" : "600 11px Inter, sans-serif";
+    ctx.fillText(label, x, h - pad.bottom + 8);
+  });
+
+  // Current month vertical guide
+  ctx.setLineDash([4, 4]);
+  ctx.strokeStyle = "rgba(167,139,250,0.2)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(toX(currentMonth), pad.top);
+  ctx.lineTo(toX(currentMonth), pad.top + chartH);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Helper: Draw filled area line
+  function drawAreaLine(data, lineColor, fillColor, glowColor) {
+    const points = [];
+    for (let i = 0; i < 12; i++) {
+      if (data[i] !== null) points.push({ i, x: toX(i), y: toY(data[i]), val: data[i] });
+    }
+    if (points.length < 2) return;
+
+    // Area fill
+    const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + chartH);
+    grad.addColorStop(0, fillColor);
+    grad.addColorStop(1, "rgba(0,0,0,0)");
+
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, pad.top + chartH);
+    ctx.lineTo(points[0].x, points[0].y);
+    for (let p = 1; p < points.length; p++) {
+      const prev = points[p - 1];
+      const curr = points[p];
+      const cpx = (prev.x + curr.x) / 2;
+      ctx.bezierCurveTo(cpx, prev.y, cpx, curr.y, curr.x, curr.y);
+    }
+    ctx.lineTo(points[points.length - 1].x, pad.top + chartH);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Line
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let p = 1; p < points.length; p++) {
+      const prev = points[p - 1];
+      const curr = points[p];
+      const cpx = (prev.x + curr.x) / 2;
+      ctx.bezierCurveTo(cpx, prev.y, cpx, curr.y, curr.x, curr.y);
+    }
+    ctx.strokeStyle = lineColor;
+    ctx.lineWidth = 3;
+    ctx.setLineDash([]);
+    ctx.stroke();
+
+    // Glow line (underneath)
+    ctx.save();
+    ctx.globalCompositeOperation = "destination-over";
+    ctx.strokeStyle = glowColor;
+    ctx.lineWidth = 8;
+    ctx.filter = "blur(4px)";
+    ctx.stroke();
+    ctx.restore();
+
+    // Dots at every data point & value labels at milestones
+    ctx.font = "700 10px Inter, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "bottom";
+
+    points.forEach((pt, idx) => {
+      const isLast = idx === points.length - 1;
+      const isFirst = idx === 0;
+      const isMilestone = isFirst || isLast || pt.i === currentMonth;
+
+      // Dot
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, isMilestone ? 5 : 3, 0, Math.PI * 2);
+      ctx.fillStyle = lineColor;
+      ctx.fill();
+
+      if (isMilestone) {
+        // Outer glow
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, 8, 0, Math.PI * 2);
+        ctx.fillStyle = glowColor;
+        ctx.fill();
+
+        // Value label
+        ctx.fillStyle = lineColor;
+        ctx.fillText("£" + pt.val.toLocaleString(), pt.x, pt.y - 12);
+      }
+    });
+  }
+
+  // Draw Planned total (purple, behind)
+  drawAreaLine(cumPlanned, "#a78bfa", "rgba(167,139,250,0.08)", "rgba(167,139,250,0.25)");
+
+  // Draw Actual total (cyan, on top)
+  drawAreaLine(cumActual, "#06b6d4", "rgba(6,182,212,0.12)", "rgba(6,182,212,0.3)");
+}
+
+function renderProgressChart() {
+  renderMonthlyBarChart();
+  renderCumulativeChart();
+}
+
+function renderProgress() {
+  const tbody = document.getElementById("progressTbody");
+  const tfoot = document.getElementById("progressTfoot");
+  const yearLabel = document.getElementById("progressYearLabel");
+  if (!tbody) return;
+
+  if (yearLabel) yearLabel.textContent = state.progressYear;
+
+  const currentMonth = new Date().getMonth();
+  let totalPlannedGary = 0, totalActualGary = 0;
+  let totalPlannedCat = 0, totalActualCat = 0;
+
+  // Short month names for mobile
+  const SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+  tbody.innerHTML = state.monthlyProgress
+    .map((entry, idx) => {
+      totalPlannedGary += entry.plannedGary;
+      totalActualGary += entry.actualGary;
+      totalPlannedCat += entry.plannedCat;
+      totalActualCat += entry.actualCat;
+
+      const rowTotalPlanned = entry.plannedGary + entry.plannedCat;
+      const rowTotalActual = entry.actualGary + entry.actualCat;
+      const diff = rowTotalActual - rowTotalPlanned;
+
+      // Styling helpers
+      const diffClass = diff > 0 ? "progress-diff positive" : diff < 0 ? "progress-diff negative" : "progress-diff";
+      const diffLabel = diff > 0 ? `+${GBP.format(diff)}` : diff < 0 ? `\u2212${GBP.format(Math.abs(diff))}` : "\u2014";
+
+      const isPast = idx < currentMonth;
+      const isCurrent = idx === currentMonth;
+      const isFuture = idx > currentMonth;
+      const rowClass = isCurrent ? "progress-row progress-row--current" : isPast ? "progress-row progress-row--past" : "progress-row progress-row--future";
+
+      return `
+        <tr class="${rowClass}" data-month-index="${idx}">
+          <td class="progress-month">
+            <span class="month-full">${escapeHtml(entry.month)}</span>
+            <span class="month-short">${SHORT_MONTHS[idx]}</span>
+          </td>
+          
+          <!-- Gary -->
+          <td><input data-field="plannedGary" class="number" type="number" min="0" step="50" value="${entry.plannedGary}" aria-label="Gary Planned ${entry.month}" placeholder="0" /></td>
+          <td><input data-field="actualGary" class="number" type="number" min="0" step="50" value="${entry.actualGary}" aria-label="Gary Actual ${entry.month}" placeholder="0" /></td>
+          
+          <!-- Catherine -->
+          <td><input data-field="plannedCat" class="number" type="number" min="0" step="50" value="${entry.plannedCat}" aria-label="Cat Planned ${entry.month}" placeholder="0" /></td>
+          <td><input data-field="actualCat" class="number" type="number" min="0" step="50" value="${entry.actualCat}" aria-label="Cat Actual ${entry.month}" placeholder="0" /></td>
+
+          <!-- Combined Diff -->
+          <td class="${diffClass}" style="text-align:right; font-weight:600; font-size:0.85rem;">${diffLabel}</td>
+          
+          <!-- Notes -->
+          <td><input data-field="notes" type="text" value="${escapeHtml(entry.notes)}" placeholder="${isFuture ? "Plan ahead\u2026" : "Notes\u2026"}" aria-label="Notes for ${entry.month}" /></td>
+        </tr>`;
+    })
+    .join("");
+
+  // Totals footer
+  if (tfoot) {
+    const totalPlannedAll = totalPlannedGary + totalPlannedCat;
+    const totalActualAll = totalActualGary + totalActualCat;
+    const totalDiff = totalActualAll - totalPlannedAll;
+
+    const diffClass = totalDiff > 0 ? "progress-diff positive" : totalDiff < 0 ? "progress-diff negative" : "progress-diff";
+    const diffLabel = totalDiff > 0 ? `+${GBP.format(totalDiff)}` : totalDiff < 0 ? `\u2212${GBP.format(Math.abs(totalDiff))}` : "\u2014";
+
+    tfoot.innerHTML = `
+      <tr class="progress-total-row">
+        <td class="progress-month" style="padding-left:12px;">Total</td>
+        <td class="number" style="color:var(--brand-light); opacity:0.8;">${GBP.format(totalPlannedGary)}</td>
+        <td class="number" style="color:var(--brand-light);">${GBP.format(totalActualGary)}</td>
+        <td class="number" style="color:var(--accent); opacity:0.8;">${GBP.format(totalPlannedCat)}</td>
+        <td class="number" style="color:var(--accent);">${GBP.format(totalActualCat)}</td>
+        <td class="${diffClass}" style="text-align:right;">${diffLabel}</td>
+        <td></td>
+      </tr>`;
+  }
+
+  // ── Summary stat cards ──────────────────────────────────────────────────
+  const totalPlanned = totalPlannedGary + totalPlannedCat;
+  const totalActual = totalActualGary + totalActualCat;
+
+  const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+
+  setText("progStatPlanned", GBP.format(totalPlanned));
+  setText("progStatActual", GBP.format(totalActual));
+
+  const pct = totalPlanned > 0 ? Math.round((totalActual / totalPlanned) * 100) : 0;
+  setText("progStatPct", `${pct}% of target`);
+  const meter = document.getElementById("progStatMeter");
+  if (meter) meter.style.width = `${Math.min(100, pct)}%`;
+
+  const totalDiff = totalActual - totalPlanned;
+  const diffEl = document.getElementById("progStatDiff");
+  const diffNote = document.getElementById("progStatDiffNote");
+  const diffCard = document.getElementById("progStatDiffCard");
+  if (diffEl) {
+    if (totalDiff > 0) {
+      diffEl.textContent = `+${GBP.format(totalDiff)}`;
+      diffEl.className = "progress-stat-value progress-stat-value--positive";
+    } else if (totalDiff < 0) {
+      diffEl.textContent = `\u2212${GBP.format(Math.abs(totalDiff))}`;
+      diffEl.className = "progress-stat-value progress-stat-value--negative";
+    } else {
+      diffEl.textContent = "\u2014";
+      diffEl.className = "progress-stat-value";
+    }
+  }
+  if (diffNote) {
+    if (totalPlanned === 0) diffNote.textContent = "Set your targets first";
+    else if (totalDiff >= 0) diffNote.textContent = "Ahead of schedule \ud83c\udf89";
+    else diffNote.textContent = "Behind target \u2014 you've got this!";
+  }
+  if (diffCard) {
+    diffCard.classList.toggle("progress-stat-card--positive", totalDiff > 0);
+    diffCard.classList.toggle("progress-stat-card--negative", totalDiff < 0);
+  }
+
+  // ── Motivational message (using combined stats) ──────────────────────────
+  const motEl = document.getElementById("progressMotivationText");
+  const motEmoji = document.querySelector(".progress-motivation-emoji");
+  const motBanner = document.getElementById("progressMotivation");
+  if (motEl && motEmoji && motBanner) {
+    const monthsSaved = state.monthlyProgress.filter((e, i) => i <= currentMonth && (e.actualGary + e.actualCat) > 0).length;
+    const monthsPlanned = state.monthlyProgress.filter(e => (e.plannedGary + e.plannedCat) > 0).length;
+    const monthsMissed = state.monthlyProgress.filter((e, i) => i < currentMonth && (e.plannedGary + e.plannedCat) > 0 && (e.actualGary + e.actualCat) < (e.plannedGary + e.plannedCat)).length;
+    const monthsHit = state.monthlyProgress.filter((e, i) => i <= currentMonth && (e.plannedGary + e.plannedCat) > 0 && (e.actualGary + e.actualCat) >= (e.plannedGary + e.plannedCat)).length;
+
+    let msg = "", emoji = "\ud83d\ude80";
+    if (monthsPlanned === 0) {
+      msg = "Start by entering your planned savings for each month \u2014 set the target, then crush it!";
+      emoji = "\ud83d\ude80";
+    } else if (monthsHit > 0 && monthsMissed === 0) {
+      msg = `You've hit every single target so far! ${monthsHit} month${monthsHit !== 1 ? "s" : ""} of pure discipline. Keep the streak alive!`;
+      emoji = "\ud83d\udd25";
+    } else if (pct >= 100) {
+      msg = "Incredible! You've already saved more than your total target for the year. You're built different.";
+      emoji = "\ud83c\udfc6";
+    } else if (pct >= 80) {
+      msg = `${pct}% of your annual target saved. You're almost there \u2014 finish strong!`;
+      emoji = "\ud83d\udcaa";
+    } else if (monthsMissed > 0 && monthsMissed <= 2) {
+      msg = `You missed ${monthsMissed} month${monthsMissed !== 1 ? "s" : ""}. Small slip, easy recovery. Every penny counts!`;
+      emoji = "\ud83d\udca1";
+    } else if (monthsMissed > 2) {
+      msg = `${monthsMissed} months below target. Time to refocus \u2014 the gap is worth ${GBP.format(Math.abs(totalDiff))}. You can close it!`;
+      emoji = "\u26a1";
+    } else if (monthsSaved > 0) {
+      msg = `${monthsSaved} month${monthsSaved !== 1 ? "s" : ""} tracked. Keep it up \u2014 consistency beats intensity!`;
+      emoji = "\ud83d\udcc8";
+    } else {
+      msg = "A fresh start. Enter this month's savings and watch your progress grow!";
+      emoji = "\u2728";
+    }
+
+    motEl.textContent = msg;
+    motEmoji.textContent = emoji;
+    motBanner.classList.toggle("progress-motivation--positive", totalDiff >= 0 && totalPlanned > 0);
+    motBanner.classList.toggle("progress-motivation--negative", totalDiff < 0);
+  }
+
+  // ── Chart ────────────────────────────────────────────────────────────────
+  renderProgressChart();
+}
+
 function renderApp() {
   sanitizeState();
   const derived = deriveState();
@@ -529,6 +1121,7 @@ function renderApp() {
   renderGoals(derived);
   renderAllocationForm(derived);
   renderAllocations(derived);
+  renderProgress();
   saveState();
 }
 
@@ -553,7 +1146,7 @@ function addOrUpdateAllocation(accountId, subGoalId, amountToAdd) {
 function assignFunds(accountId, subGoalId, requestedAmount) {
   const amount = normalizeAmount(requestedAmount);
   if (!amount) {
-    setAllocatorMessage("Enter a positive amount to assign.", "warn");
+    showToast("Invalid Amount", "Please enter a positive amount to assign.", "error");
     return;
   }
 
@@ -562,17 +1155,17 @@ function assignFunds(accountId, subGoalId, requestedAmount) {
   const subGoal = derived.subGoalsDerived.find((item) => item.id === subGoalId);
 
   if (!account || !subGoal) {
-    setAllocatorMessage("Select both an account and a sub-goal.", "warn");
+    showToast("Missing Selection", "Select both an account and a sub-goal.", "error");
     return;
   }
 
   if (account.available <= 0) {
-    setAllocatorMessage("Selected account has no available cash to assign.", "warn");
+    showToast("Insufficient Funds", "Selected account has no available cash.", "error");
     return;
   }
 
   if (subGoal.remaining <= 0) {
-    setAllocatorMessage("That sub-goal is already fully funded.", "warn");
+    showToast("Goal Funded", "That sub-goal is already fully funded!", "info");
     return;
   }
 
@@ -581,11 +1174,16 @@ function assignFunds(accountId, subGoalId, requestedAmount) {
   renderApp();
 
   if (applied < amount) {
-    setAllocatorMessage(`Assigned ${GBP.format(applied)} (capped by available cash or remaining target).`, "warn");
+    showToast("Partial Allocation", `Assigned ${GBP.format(applied)} (capped by available funds).`, "info");
     return;
   }
 
-  setAllocatorMessage(`Assigned ${GBP.format(applied)} to ${subGoal.goalName} › ${subGoal.name}.`, "success");
+  showToast("Funds Assigned", `allocated ${GBP.format(applied)} to ${subGoal.name}.`, "success");
+
+  // If we just finished a goal, celebrate!
+  if (subGoal.remaining - applied <= 0) {
+    triggerConfetti();
+  }
 }
 
 function autoAssignReadyCash() {
@@ -594,12 +1192,12 @@ function autoAssignReadyCash() {
   const fundedAccounts = derived.accountsDerived.filter((account) => account.available > 0);
 
   if (!openSubGoals.length) {
-    setAllocatorMessage("All sub-goals are fully funded already.", "warn");
+    showToast("All Done!", "All sub-goals are fully funded.", "success");
     return;
   }
 
   if (!fundedAccounts.length) {
-    setAllocatorMessage("No available cash to auto-assign.", "warn");
+    showToast("No Funds", "No available cash to auto-assign.", "error");
     return;
   }
 
@@ -628,11 +1226,12 @@ function autoAssignReadyCash() {
   renderApp();
 
   if (!assignedTotal) {
-    setAllocatorMessage("Auto-assign did not find any valid allocation moves.", "warn");
+    showToast("Auto-Assign", "No valid allocation moves found.", "info");
     return;
   }
 
-  setAllocatorMessage(`Auto-assigned ${GBP.format(assignedTotal)} across open sub-goals.`, "success");
+  showToast("Auto-Assign Complete", `Allocated ${GBP.format(assignedTotal)} across open goals.`, "success");
+  triggerConfetti();
 }
 
 // ── Wire events ────────────────────────────────────────────────────────────────
@@ -649,6 +1248,46 @@ function wireEvents() {
   const resetDialog = document.getElementById("resetDialog");
   const resetCancelBtn = document.getElementById("resetCancelBtn");
   const resetConfirmBtn = document.getElementById("resetConfirmBtn");
+  const progressTbody = document.getElementById("progressTbody");
+
+  // ── Tab switching ─────────────────────────────────────────────────────────
+  document.querySelector(".tab-bar")?.addEventListener("click", (e) => {
+    const btn = e.target.closest(".tab-btn");
+    if (!btn) return;
+    const tab = btn.getAttribute("data-tab");
+    document.querySelectorAll(".tab-btn").forEach((b) => b.classList.toggle("active", b === btn));
+    document.querySelectorAll(".tab-panel").forEach((p) => {
+      p.classList.toggle("active", p.getAttribute("data-tab-panel") === tab);
+    });
+
+    if (tab === "progress") {
+      // Small delay to ensure layout is updated after display:block
+      requestAnimationFrame(() => renderProgressChart());
+    }
+  });
+
+  // ── Progress table — inline editing ────────────────────────────────────────
+  progressTbody?.addEventListener("change", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement)) return;
+
+    const row = target.closest("tr[data-month-index]");
+    if (!row) return;
+
+    const idx = parseInt(row.getAttribute("data-month-index"), 10);
+    const field = target.getAttribute("data-field");
+    if (isNaN(idx) || !field || !state.monthlyProgress[idx]) return;
+
+    if (field === "notes") {
+      state.monthlyProgress[idx].notes = target.value;
+    } else {
+      // plannedGary, actualGary, plannedCat, actualCat
+      state.monthlyProgress[idx][field] = normalizeAmount(target.value);
+    }
+
+    renderProgress();
+    saveState();
+  });
 
   // ── Add account wizard ────────────────────────────────────────────────────
 
@@ -940,6 +1579,7 @@ function wireEvents() {
     renderApp();
     resetDialog?.close();
     setAllocatorMessage("Data has been reset to defaults.", "success");
+    showToast("Reset Complete", "All data has been restored to defaults.", "info");
   });
 
   resetDialog?.addEventListener("click", (event) => {
@@ -947,7 +1587,7 @@ function wireEvents() {
   });
 
   // ── Accounts table — input changes (name, provider, owner, balance)
-  accountsTbody?.addEventListener("input", (event) => {
+  accountsTbody?.addEventListener("change", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLInputElement) && !(target instanceof HTMLSelectElement)) return;
 
@@ -986,7 +1626,7 @@ function wireEvents() {
   });
 
   // ── Goals board — input changes
-  goalsBoard?.addEventListener("input", (event) => {
+  goalsBoard?.addEventListener("change", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLInputElement)) return;
 
@@ -1087,7 +1727,7 @@ function wireEvents() {
   });
 
   // ── Allocation ledger — edit amount
-  allocationsTbody?.addEventListener("input", (event) => {
+  allocationsTbody?.addEventListener("change", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLInputElement)) return;
 
@@ -1122,6 +1762,12 @@ function wireEvents() {
 function bootstrap() {
   renderApp();
   wireEvents();
+  // Redraw chart on resize
+  let resizeTimer;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(renderProgressChart, 150);
+  });
 }
 
 bootstrap();
