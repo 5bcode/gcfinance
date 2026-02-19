@@ -1230,6 +1230,43 @@ td:last-child {
   display: none;
 }
 
+/* ── Account cell: view mode ─────────────────────────────────────────────── */
+
+.acct-cell-view {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.acct-provider {
+  font-size: 0.85rem;
+  color: var(--ink-dim);
+  font-weight: 500;
+}
+
+.acct-number {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+/* ── Account cell: edit mode ─────────────────────────────────────────────── */
+
+.acct-cell-edit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.acct-cell-edit select {
+  flex-shrink: 0;
+  width: auto;
+}
+
+.acct-cell-edit input {
+  flex: 1;
+  min-width: 0;
+}
+
 /* ── Compact buttons in block headers ────────────────────────────────────── */
 
 .block-head .btn {
@@ -1899,7 +1936,7 @@ td:last-child {
 
 /* ── Accounts Table Grouping ───────────────────────────────────────────── */
 .account-group-header td {
-  padding: 24px 8px 12px;
+  padding: 16px 12px 8px;
   border-bottom: none;
   text-align: left;
 }

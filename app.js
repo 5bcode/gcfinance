@@ -474,7 +474,7 @@ function renderAccounts(derived) {
     .map(([typeName, accounts]) => {
       const groupHeader = `
         <tr class="account-group-header">
-          <td colspan="5"><span class="account-group-label">${escapeHtml(typeName)}</span></td>
+          <td colspan="4"><span class="account-group-label">${escapeHtml(typeName)}</span></td>
         </tr>`;
 
       const rows = accounts
@@ -482,28 +482,31 @@ function renderAccounts(derived) {
           const availableClass = account.available < 0 ? "number negative" : "number";
           const ownerKey = OWNER_COLORS[account.owner] || "other";
 
-          const ownerCell = acctEditMode
-            ? `<select data-field="owner" class="owner-pill owner-pill--${ownerKey}" aria-label="Account owner">${OWNERS.map(
+          // In edit mode: separate owner select + provider input stacked in one cell
+          // In view mode: pill + provider name side by side
+          const accountCell = acctEditMode
+            ? `<div class="acct-cell-edit">
+                <select data-field="owner" class="owner-pill owner-pill--${ownerKey}" aria-label="Account owner">${OWNERS.map(
               (o) => `<option value="${o}"${o === account.owner ? " selected" : ""}>${escapeHtml(o)}</option>`
-            ).join("")}</select>`
-            : `<span class="owner-pill-label owner-pill-label--${ownerKey}">${escapeHtml(account.owner)}</span>`;
+            ).join("")}</select>
+                <input data-field="provider" value="${escapeHtml(account.provider || "")}" placeholder="Provider…" aria-label="Provider" />
+              </div>`
+            : `<div class="acct-cell-view">
+                <span class="owner-pill-label owner-pill-label--${ownerKey}">${escapeHtml(account.owner)}</span>
+                <span class="acct-provider">${escapeHtml(account.provider || "—")}</span>
+              </div>`;
 
-          const providerCell = acctEditMode
-            ? `<input data-field="provider" value="${escapeHtml(account.provider || "")}" aria-label="Provider" />`
-            : `<span class="acct-text">${escapeHtml(account.provider || "—")}</span>`;
+          const balanceCell = acctEditMode
+            ? `<input data-field="balance" class="number" type="number" min="0" step="50" value="${account.balance}" aria-label="Account balance" />`
+            : `<span class="acct-number">${GBP.format(account.balance)}</span>`;
 
           const removeCell = acctEditMode
             ? `<button type="button" class="row-remove" data-action="remove-account">Remove</button>`
             : ``;
 
-          const balanceCell = acctEditMode
-            ? `<input data-field="balance" class="number" type="number" min="0" step="50" value="${account.balance}" aria-label="Account balance" />`
-            : `<span class="number" style="font-feature-settings: 'tnum'; font-weight: 500;">${GBP.format(account.balance)}</span>`;
-
           return `
             <tr data-account-id="${account.id}">
-              <td>${ownerCell}</td>
-              <td>${providerCell}</td>
+              <td>${accountCell}</td>
               <td class="number">${balanceCell}</td>
               <td class="${availableClass}">${GBP.format(account.available)}</td>
               <td>${removeCell}</td>
