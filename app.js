@@ -688,29 +688,38 @@ function renderAllocations(derived) {
     .join("");
 }
 
-board.innerHTML = derived.goalsDerived
-  .map((goal) => {
-    const isEditing = editingGoalIds.has(goal.id);
+function renderGoals(derived) {
+  const board = document.getElementById("goalBoard");
+  if (!board) return;
 
-    const rows = goal.subGoals.length
-      ? goal.subGoals
-        .map((subGoal) => {
-          const derivedSubGoal = derived.subGoalsDerived.find((item) => item.id === subGoal.id);
-          if (!derivedSubGoal) return "";
+  if (!derived.goalsDerived.length) {
+    board.innerHTML = '<p class="muted">No goals yet. Add one and break it down into sub-goals.</p>';
+    return;
+  }
 
-          const nameCell = isEditing
-            ? `<input data-field="subgoal-name" value="${escapeHtml(subGoal.name)}" aria-label="Sub-goal name" />`
-            : `<span style="font-weight:500">${escapeHtml(subGoal.name)}</span>`;
+  board.innerHTML = derived.goalsDerived
+    .map((goal) => {
+      const isEditing = editingGoalIds.has(goal.id);
 
-          const targetCell = isEditing
-            ? `<input data-field="subgoal-target" class="number" type="number" min="0" step="100" value="${derivedSubGoal.target}" aria-label="Sub-goal target" />`
-            : `<span class="number" style="font-feature-settings:'tnum'">${GBP.format(derivedSubGoal.target)}</span>`;
+      const rows = goal.subGoals.length
+        ? goal.subGoals
+          .map((subGoal) => {
+            const derivedSubGoal = derived.subGoalsDerived.find((item) => item.id === subGoal.id);
+            if (!derivedSubGoal) return "";
 
-          const actionsCell = isEditing
-            ? `<button type="button" class="row-remove" data-action="remove-subgoal">Remove</button>`
-            : `<button type="button" class="action-ghost" data-action="fill-subgoal">Assign</button>`;
+            const nameCell = isEditing
+              ? `<input data-field="subgoal-name" value="${escapeHtml(subGoal.name)}" aria-label="Sub-goal name" />`
+              : `<span style="font-weight:500">${escapeHtml(subGoal.name)}</span>`;
 
-          return `
+            const targetCell = isEditing
+              ? `<input data-field="subgoal-target" class="number" type="number" min="0" step="100" value="${derivedSubGoal.target}" aria-label="Sub-goal target" />`
+              : `<span class="number" style="font-feature-settings:'tnum'">${GBP.format(derivedSubGoal.target)}</span>`;
+
+            const actionsCell = isEditing
+              ? `<button type="button" class="row-remove" data-action="remove-subgoal">Remove</button>`
+              : `<button type="button" class="action-ghost" data-action="fill-subgoal">Assign</button>`;
+
+            return `
                 <tr data-goal-id="${goal.id}" data-subgoal-id="${subGoal.id}">
                   <td>${nameCell}</td>
                   <td>${targetCell}</td>
@@ -728,24 +737,24 @@ board.innerHTML = derived.goalsDerived
                   </td>
                 </tr>
               `;
-        })
-        .join("")
-      : '<tr class="empty-row"><td colspan="6">No sub-goals yet. Add one to start tracking.</td></tr>';
+          })
+          .join("")
+        : '<tr class="empty-row"><td colspan="6">No sub-goals yet. Add one to start tracking.</td></tr>';
 
-    const headerName = isEditing
-      ? `<input class="goal-name-input" data-field="goal-name" value="${escapeHtml(goal.name)}" aria-label="Goal name" style="margin:0; font-size:1.25rem; font-weight:700;" />`
-      : `<h3 style="margin:0; font-size:1.25rem; font-weight:700;">${escapeHtml(goal.name)}</h3>`;
+      const headerName = isEditing
+        ? `<input class="goal-name-input" data-field="goal-name" value="${escapeHtml(goal.name)}" aria-label="Goal name" style="margin:0; font-size:1.25rem; font-weight:700;" />`
+        : `<h3 style="margin:0; font-size:1.25rem; font-weight:700;">${escapeHtml(goal.name)}</h3>`;
 
-    const headerAction = isEditing
-      ? `<button type="button" class="btn btn-primary btn-sm" data-action="save-goal">Done</button>
+      const headerAction = isEditing
+        ? `<button type="button" class="btn btn-primary btn-sm" data-action="save-goal">Done</button>
            <button type="button" class="btn-danger-soft btn-sm" data-action="remove-goal">Delete Goal</button>`
-      : `<button type="button" class="btn btn-ghost btn-sm" data-action="edit-goal">✏ Edit</button>`;
+        : `<button type="button" class="btn btn-ghost btn-sm" data-action="edit-goal">✏ Edit</button>`;
 
-    const footerAction = isEditing
-      ? `<button type="button" class="btn btn-secondary" data-action="add-subgoal">+ Add sub-goal</button>`
-      : ``;
+      const footerAction = isEditing
+        ? `<button type="button" class="btn btn-secondary" data-action="add-subgoal">+ Add sub-goal</button>`
+        : ``;
 
-    return `
+      return `
         <article class="goal-card" data-goal-id="${goal.id}" data-complete="${goal.progress >= 100}">
           <div class="goal-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
             <div style="flex:1; margin-right:16px;">${headerName}</div>
@@ -788,8 +797,8 @@ board.innerHTML = derived.goalsDerived
         </article>
 
       `;
-  })
-  .join("");
+    })
+    .join("");
 }
 
 // ── Charts ─────────────────────────────────────────────────────────────────────
