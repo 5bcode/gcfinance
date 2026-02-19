@@ -14,7 +14,7 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December",
 ];
 
-const ACCOUNT_TYPES = ["Current Account", "Savings", "ISA", "Joint Account", "Credit Card", "Other"];
+const ACCOUNT_TYPES = ["Current Account", "Savings", "ISA", "Credit Card", "Other"];
 
 const DEFAULT_DATA = {
   accounts: [
@@ -1480,6 +1480,15 @@ function wireEvents() {
     updateSimpleMode();
   });
 
+  // ── Provider select — show/hide custom input ───────────────────────────────
+  document.getElementById("newAcctProvider")?.addEventListener("change", (e) => {
+    const customInput = document.getElementById("newAcctProviderCustom");
+    if (!customInput) return;
+    const isOther = e.target.value === "__other__";
+    customInput.style.display = isOther ? "block" : "none";
+    if (isOther) setTimeout(() => customInput.focus(), 30);
+  });
+
   // ── Accounts table — inline editing ──────────────────────────────────────
   accountsTbody?.addEventListener("change", (e) => {
     const target = e.target;
@@ -1563,7 +1572,10 @@ function wireEvents() {
     acctTypeSelected = "";
     acctOwnerSelected = "";
     document.getElementById("newAcctName").value = "";
-    document.getElementById("newAcctProvider").value = "";
+    const provSel = document.getElementById("newAcctProvider");
+    if (provSel) provSel.value = "";
+    const provCustom = document.getElementById("newAcctProviderCustom");
+    if (provCustom) { provCustom.value = ""; provCustom.style.display = "none"; }
     document.getElementById("newAcctBalance").value = "";
     document.querySelectorAll(".wizard-choice").forEach((btn) => btn.classList.remove("selected"));
     showAcctStep(0);
@@ -1666,7 +1678,13 @@ function wireEvents() {
     const type = acctTypeSelected || "Other";
     const name = nameInput?.value.trim() || "New Account";
     const owner = acctOwnerSelected || "Joint";
-    const provider = (document.getElementById("newAcctProvider")?.value || "").trim();
+    // Resolve provider: if "Other / Custom" was selected, use the custom text input
+    const providerSelect = document.getElementById("newAcctProvider");
+    const providerCustom = document.getElementById("newAcctProviderCustom");
+    const providerRaw = providerSelect?.value || "";
+    const provider = providerRaw === "__other__"
+      ? (providerCustom?.value || "").trim()
+      : providerRaw.trim();
     const balance = normalizeAmount(document.getElementById("newAcctBalance")?.value || 0);
 
     state.accounts.push({ id: makeId("acct"), type, name, provider, owner, balance });

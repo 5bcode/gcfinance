@@ -393,7 +393,6 @@
           <button type="button" class="wizard-choice" data-value="Current Account">Current Account</button>
           <button type="button" class="wizard-choice" data-value="Savings">Savings</button>
           <button type="button" class="wizard-choice" data-value="ISA">ISA</button>
-          <button type="button" class="wizard-choice" data-value="Joint Account">Joint Account</button>
           <button type="button" class="wizard-choice" data-value="Credit Card">Credit Card</button>
           <button type="button" class="wizard-choice" data-value="Other">Other</button>
         </div>
@@ -421,8 +420,18 @@
       <!-- Step 4: Provider -->
       <div class="wizard-step" id="addAcctStep4" hidden>
         <label class="wizard-label" for="newAcctProvider">Which bank or provider?</label>
-        <input id="newAcctProvider" type="text" class="wizard-input" placeholder="e.g. Monzo, Barclays, Nationwide…"
-          maxlength="60" autocomplete="off" />
+        <select id="newAcctProvider" class="wizard-input">
+          <option value="">— Select a provider —</option>
+          <option value="Lloyds">Lloyds</option>
+          <option value="Virgin Money">Virgin Money</option>
+          <option value="Moneybox">Moneybox</option>
+          <option value="Nationwide">Nationwide</option>
+          <option value="Monzo">Monzo</option>
+          <option value="Revolut">Revolut</option>
+          <option value="__other__">Other / Custom…</option>
+        </select>
+        <input id="newAcctProviderCustom" type="text" class="wizard-input" placeholder="Enter provider name…"
+          maxlength="60" autocomplete="off" style="display:none;margin-top:10px" />
         <p class="wizard-hint">Optional — leave blank if you'd rather add it later.</p>
       </div>
 
