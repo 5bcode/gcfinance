@@ -464,9 +464,14 @@
       <!-- Step 1: Goal name -->
       <div class="wizard-step" id="addGoalStep1">
         <label class="wizard-label" for="newGoalName">What is this goal called?</label>
-        <input id="newGoalName" type="text" class="wizard-input"
-          placeholder="e.g. House Purchase, Holiday, Emergency Fund…" maxlength="80" autocomplete="off" />
-        <p class="wizard-hint">A clear name helps you stay motivated.</p>
+        <div class="input-with-action">
+          <input id="newGoalName" type="text" class="wizard-input"
+            placeholder="e.g. House Purchase, Holiday, Emergency Fund…" maxlength="80" autocomplete="off" />
+          <button type="button" id="aiGenerateBtn" class="btn-ai" title="Auto-generate sub-goals with AI">
+            ✨
+          </button>
+        </div>
+        <p class="wizard-hint">A clear name helps you stay motivated. Click ✨ to auto-create sub-goals.</p>
       </div>
 
       <!-- Step 2: First sub-goal name -->
