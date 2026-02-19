@@ -101,6 +101,7 @@ let state = loadState();
 // ── UI state (not persisted) ───────────────────────────────────────────────────
 let acctOwnerFilter = new Set(OWNERS); // which owners to show; all active by default
 let acctEditMode = false;              // whether the accounts table is in edit mode
+let editingGoalIds = new Set();        // set of goal IDs currently in edit mode
 let simpleMode = localStorage.getItem(SIMPLE_MODE_KEY) === "true"; // simple mode hides details, shows totals
 
 // ── Utilities ──────────────────────────────────────────────────────────────────
@@ -234,6 +235,15 @@ function animateValue(id, start, end, duration = 800) {
     }
   };
   window.requestAnimationFrame(step);
+}
+
+function toggleGoalEdit(goalId) {
+  if (editingGoalIds.has(goalId)) {
+    editingGoalIds.delete(goalId);
+  } else {
+    editingGoalIds.add(goalId);
+  }
+  renderApp();
 }
 
 
@@ -486,11 +496,15 @@ function renderAccounts(derived) {
             ? `<button type="button" class="row-remove" data-action="remove-account">Remove</button>`
             : ``;
 
+          const balanceCell = acctEditMode
+            ? `<input data-field="balance" class="number" type="number" min="0" step="50" value="${account.balance}" aria-label="Account balance" />`
+            : `<span class="number" style="font-feature-settings: 'tnum'; font-weight: 500;">${GBP.format(account.balance)}</span>`;
+
           return `
             <tr data-account-id="${account.id}">
               <td>${ownerCell}</td>
               <td>${providerCell}</td>
-              <td><input data-field="balance" class="number" type="number" min="0" step="50" value="${account.balance}" aria-label="Account balance" /></td>
+              <td>${balanceCell}</td>
               <td class="${availableClass}">${GBP.format(account.available)}</td>
               <td>${removeCell}</td>
             </tr>`;
@@ -674,27 +688,32 @@ function renderAllocations(derived) {
     .join("");
 }
 
-function renderGoals(derived) {
-  const board = document.getElementById("goalBoard");
-  if (!board) return;
+board.innerHTML = derived.goalsDerived
+  .map((goal) => {
+    const isEditing = editingGoalIds.has(goal.id);
 
-  if (!derived.goalsDerived.length) {
-    board.innerHTML = '<p class="muted">No goals yet. Add one and break it down into sub-goals.</p>';
-    return;
-  }
+    const rows = goal.subGoals.length
+      ? goal.subGoals
+        .map((subGoal) => {
+          const derivedSubGoal = derived.subGoalsDerived.find((item) => item.id === subGoal.id);
+          if (!derivedSubGoal) return "";
 
-  board.innerHTML = derived.goalsDerived
-    .map((goal) => {
-      const rows = goal.subGoals.length
-        ? goal.subGoals
-          .map((subGoal) => {
-            const derivedSubGoal = derived.subGoalsDerived.find((item) => item.id === subGoal.id);
-            if (!derivedSubGoal) return "";
+          const nameCell = isEditing
+            ? `<input data-field="subgoal-name" value="${escapeHtml(subGoal.name)}" aria-label="Sub-goal name" />`
+            : `<span style="font-weight:500">${escapeHtml(subGoal.name)}</span>`;
 
-            return `
+          const targetCell = isEditing
+            ? `<input data-field="subgoal-target" class="number" type="number" min="0" step="100" value="${derivedSubGoal.target}" aria-label="Sub-goal target" />`
+            : `<span class="number" style="font-feature-settings:'tnum'">${GBP.format(derivedSubGoal.target)}</span>`;
+
+          const actionsCell = isEditing
+            ? `<button type="button" class="row-remove" data-action="remove-subgoal">Remove</button>`
+            : `<button type="button" class="action-ghost" data-action="fill-subgoal">Assign</button>`;
+
+          return `
                 <tr data-goal-id="${goal.id}" data-subgoal-id="${subGoal.id}">
-                  <td><input data-field="subgoal-name" value="${escapeHtml(subGoal.name)}" aria-label="Sub-goal name" /></td>
-                  <td><input data-field="subgoal-target" class="number" type="number" min="0" step="100" value="${derivedSubGoal.target}" aria-label="Sub-goal target" /></td>
+                  <td>${nameCell}</td>
+                  <td>${targetCell}</td>
                   <td class="number">${GBP.format(derivedSubGoal.assigned)}</td>
                   <td class="number">${GBP.format(derivedSubGoal.remaining)}</td>
                   <td style="width: 120px;">
@@ -702,24 +721,35 @@ function renderGoals(derived) {
                       <div class="progress-fill" style="width:${derivedSubGoal.progress}%"></div>
                     </div>
                   </td>
-
                   <td>
                     <div class="subgoal-actions">
-                      <button type="button" class="action-ghost" data-action="fill-subgoal">Assign</button>
-                      <button type="button" class="row-remove" data-action="remove-subgoal">Remove</button>
+                      ${actionsCell}
                     </div>
                   </td>
                 </tr>
               `;
-          })
-          .join("")
-        : '<tr class="empty-row"><td colspan="6">No sub-goals yet for this goal.</td></tr>';
+        })
+        .join("")
+      : '<tr class="empty-row"><td colspan="6">No sub-goals yet. Add one to start tracking.</td></tr>';
 
-      return `
+    const headerName = isEditing
+      ? `<input class="goal-name-input" data-field="goal-name" value="${escapeHtml(goal.name)}" aria-label="Goal name" style="margin:0; font-size:1.25rem; font-weight:700;" />`
+      : `<h3 style="margin:0; font-size:1.25rem; font-weight:700;">${escapeHtml(goal.name)}</h3>`;
+
+    const headerAction = isEditing
+      ? `<button type="button" class="btn btn-primary btn-sm" data-action="save-goal">Done</button>
+           <button type="button" class="btn-danger-soft btn-sm" data-action="remove-goal">Delete Goal</button>`
+      : `<button type="button" class="btn btn-ghost btn-sm" data-action="edit-goal">✏ Edit</button>`;
+
+    const footerAction = isEditing
+      ? `<button type="button" class="btn btn-secondary" data-action="add-subgoal">+ Add sub-goal</button>`
+      : ``;
+
+    return `
         <article class="goal-card" data-goal-id="${goal.id}" data-complete="${goal.progress >= 100}">
-          <div class="goal-header">
-            <input class="goal-name-input" data-field="goal-name" value="${escapeHtml(goal.name)}" aria-label="Goal name" />
-            <button type="button" class="btn-danger-soft" style="margin-top:0" data-action="remove-goal">Remove</button>
+          <div class="goal-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <div style="flex:1; margin-right:16px;">${headerName}</div>
+            <div style="display:flex; gap:8px;">${headerAction}</div>
           </div>
 
           <div class="goal-metrics">
@@ -754,14 +784,12 @@ function renderGoals(derived) {
             </table>
           </div>
 
-          <div class="goal-footer" style="margin-top: 20px; display: flex; justify-content: flex-end;">
-            <button type="button" class="btn btn-secondary" data-action="add-subgoal">+ Add sub-goal</button>
-          </div>
+          ${footerAction ? `<div class="goal-footer" style="margin-top: 20px; display: flex; justify-content: flex-end;">${footerAction}</div>` : ""}
         </article>
 
       `;
-    })
-    .join("");
+  })
+  .join("");
 }
 
 // ── Charts ─────────────────────────────────────────────────────────────────────
@@ -1909,6 +1937,11 @@ function wireEvents() {
     if (!goal) return;
 
     const action = target.getAttribute("data-action");
+
+    if (action === "edit-goal" || action === "save-goal") {
+      toggleGoalEdit(goalId);
+      return;
+    }
 
     if (action === "remove-goal") {
       state.goals = state.goals.filter((entry) => entry.id !== goalId);
