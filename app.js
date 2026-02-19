@@ -1438,6 +1438,16 @@ function wireEvents() {
     updateSimpleMode();
   });
 
+  // ── Manual upload to cloud ─────────────────────────────────────────────────
+  document.getElementById("uploadDataBtn")?.addEventListener("click", () => {
+    if (window.cloudSync && window.cloudSync.isEnabled()) {
+      window.cloudSync.syncToCloud(state);
+      showToast("Uploading", "Your data is being uploaded to the cloud...", "info");
+    } else {
+      showToast("Cloud Not Connected", "Firebase is not configured.", "error");
+    }
+  });
+
   // ── Accounts table — inline editing ──────────────────────────────────────
   accountsTbody?.addEventListener("change", (e) => {
     const target = e.target;
