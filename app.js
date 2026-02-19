@@ -87,6 +87,11 @@ function saveState() {
   } catch {
     // ignore storage errors (private mode etc.)
   }
+
+  // Sync to cloud if available
+  if (window.cloudSync && window.cloudSync.isEnabled()) {
+    window.cloudSync.syncToCloud(state);
+  }
 }
 
 let state = loadState();
@@ -1977,9 +1982,37 @@ function wireEvents() {
 
 // ── Boot ───────────────────────────────────────────────────────────────────────
 
+let cloudDataLoaded = false;
+
 function bootstrap() {
   document.body.classList.add("entry-anim");
   setTimeout(() => document.body.classList.remove("entry-anim"), 1000);
+
+  // Try to load from cloud first, then local
+  if (window.cloudSync && window.cloudSync.isEnabled()) {
+    // Start listening for cloud changes
+    window.cloudSync.startCloudSync((cloudData) => {
+      if (cloudData && !cloudDataLoaded) {
+        // First time getting cloud data - use it
+        state = cloudData;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        cloudDataLoaded = true;
+        renderApp();
+      } else if (cloudData && cloudDataLoaded) {
+        // Subsequent changes - merge them
+        state = cloudData;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        renderApp();
+      }
+    });
+
+    // Mark as synced if cloud is connected
+    setTimeout(() => {
+      if (window.cloudSync && window.cloudSync.isEnabled()) {
+        document.body.classList.add("synced");
+      }
+    }, 1000);
+  }
 
   renderApp();
   wireEvents();

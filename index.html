@@ -130,7 +130,8 @@
               </div>
               <div style="display:flex;gap:8px;align-items:center;">
                 <button id="acctEditBtn" class="btn btn-ghost simple-mode-hidden" type="button">✏ Edit</button>
-                <button id="addAccountBtn" class="btn btn-secondary simple-mode-hidden" type="button">+ Add account</button>
+                <button id="addAccountBtn" class="btn btn-secondary simple-mode-hidden" type="button">+ Add
+                  account</button>
               </div>
             </div>
             <p class="block-note">Track each person's account separately, then combine for planning.</p>
@@ -504,6 +505,72 @@
   </dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    // Firebase config - replace with your own config from Firebase Console
+    const firebaseConfig = {
+      apiKey: "AIzaSyBMl2VTHDGOa77ClvfJZj1-YxcPbv1_HWQ",
+      authDomain: "gcfinance-80a66.firebaseapp.com",
+      projectId: "gcfinance-80a66",
+      storageBucket: "gcfinance-80a66.firebasestorage.app",
+      messagingSenderId: "110706508154",
+      appId: "1:110706508154:web:8da432d1b3840deb7dd6c3"
+    };
+
+    // Initialize Firebase (will fail gracefully if not configured)
+    let db = null;
+    let unsubscribe = null;
+    let syncEnabled = false;
+
+    try {
+      const app = initializeApp(firebaseConfig);
+      db = getFirestore(app);
+      syncEnabled = true;
+    } catch (e) {
+      console.log("Firebase not configured - sync disabled");
+    }
+
+    // Sync to cloud
+    async function syncToCloud(data) {
+      if (!db || !syncEnabled) return;
+      try {
+        await setDoc(doc(db, "users", "shared"), data, { merge: true });
+        document.body.classList.add("synced");
+        document.body.classList.remove("sync-error");
+      } catch (e) {
+        console.error("Sync error:", e);
+        document.body.classList.add("sync-error");
+      }
+    }
+
+    // Listen for cloud changes
+    async function startCloudSync(onData) {
+      if (!db || !syncEnabled) return;
+      try {
+        const docRef = doc(db, "users", "shared");
+        unsubscribe = onSnapshot(docRef, (doc) => {
+          if (doc.exists()) {
+            onData(doc.data());
+          }
+        });
+      } catch (e) {
+        console.error("Cloud sync error:", e);
+      }
+    }
+
+    // Stop cloud sync
+    function stopCloudSync() {
+      if (unsubscribe) {
+        unsubscribe();
+        unsubscribe = null;
+      }
+    }
+
+    // Export for use in app.js
+    window.cloudSync = { syncToCloud, startCloudSync, stopCloudSync, isEnabled: () => syncEnabled };
+  </script>
   <script src="./app.js"></script>
 </body>
 

@@ -532,6 +532,17 @@ body.simple-mode .simple-mode-hidden {
   }
 }
 
+/* Sync status */
+body.synced .nav-badge::before {
+  background: var(--success);
+  box-shadow: 0 0 8px var(--success);
+}
+
+body.sync-error .nav-badge::before {
+  background: var(--danger);
+  box-shadow: 0 0 8px var(--danger);
+}
+
 
 /* ── Hero ────────────────────────────────────────────────────────────────── */
 
