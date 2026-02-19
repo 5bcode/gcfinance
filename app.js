@@ -504,7 +504,7 @@ function renderAccounts(derived) {
             <tr data-account-id="${account.id}">
               <td>${ownerCell}</td>
               <td>${providerCell}</td>
-              <td>${balanceCell}</td>
+              <td class="number">${balanceCell}</td>
               <td class="${availableClass}">${GBP.format(account.available)}</td>
               <td>${removeCell}</td>
             </tr>`;
