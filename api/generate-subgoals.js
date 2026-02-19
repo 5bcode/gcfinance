@@ -69,6 +69,9 @@ module.exports = async (req, res) => {
 
     } catch (error) {
         console.error('AI Processing Error:', error);
-        return res.status(500).json({ error: 'Failed to generate goal breakdown. Please try again.' });
+        return res.status(500).json({
+            error: error.message || 'Failed to generate goal breakdown.',
+            details: error.toString()
+        });
     }
 };
