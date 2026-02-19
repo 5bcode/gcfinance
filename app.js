@@ -1772,64 +1772,7 @@ function wireEvents() {
     }
   });
 
-  // ── AI Goal Generator ────────────────────────────────────────────────────
-  document.getElementById("aiGenerateBtn")?.addEventListener("click", async () => {
-    const aiBtn = document.getElementById("aiGenerateBtn");
-    const goalNameInput = document.getElementById("newGoalName");
-    const goalName = goalNameInput?.value.trim();
 
-    if (!goalName) {
-      goalNameInput?.classList.add("error");
-      goalNameInput?.focus();
-      return;
-    }
-
-    aiBtn.classList.add("loading");
-
-    try {
-      const res = await fetch("/api/generate-subgoals", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ goalName })
-      });
-
-      if (!res.ok) throw new Error("AI request failed");
-
-      const data = await res.json();
-      if (!data.subGoals) throw new Error("Invalid AI response");
-
-      const newGoal = {
-        id: makeId("goal"),
-        name: goalName,
-        subGoals: data.subGoals.map(sg => ({
-          id: makeId("sg"),
-          name: sg.name,
-          target: Number(sg.target) || 0,
-          assigned: 0
-        }))
-      };
-
-      state.goals.push(newGoal);
-      saveState();
-      renderApp();
-
-      addGoalWizard?.close();
-      if (typeof showToast === "function") {
-        showToast("Goal Created ✨", `Added "${goalName}" with ${newGoal.subGoals.length} sub-goals via AI.`, "success");
-      }
-      setTimeout(resetGoalWizard, 500);
-
-    } catch (e) {
-      console.error(e);
-      if (typeof showToast === "function") {
-        showToast("AI Error", "Could not generate goal. Check API setup.", "error");
-      } else {
-        alert("Failed to generate goal. Check console.");
-      }
-    } finally {
-      aiBtn.classList.remove("loading");
-    }
-  });
 
   // ── Account edit toggle
   document.getElementById("acctEditBtn")?.addEventListener("click", () => {
