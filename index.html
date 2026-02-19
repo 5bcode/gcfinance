@@ -49,8 +49,9 @@
           <input type="checkbox" id="simpleModeToggle" />
           <span class="simple-mode-switch"></span>
         </label>
-        <button id="uploadDataBtn" class="btn btn-ghost" type="button" title="Upload local data to cloud">☁ Upload</button>
-        <span class="nav-badge">Live · Synced</span>
+        <button id="uploadDataBtn" class="btn btn-ghost" type="button" title="Upload local data to cloud">☁
+          Upload</button>
+        <span class="nav-badge" id="syncBadge">Local</span>
       </div>
     </nav>
 
@@ -276,7 +277,7 @@
           <p class="progress-stat-sub">Total planned savings</p>
         </article>
         <article class="progress-stat-card progress-stat-card--accent">
-          <div class="progress-stat-icon" aria-hidden="true">�</div>
+          <div class="progress-stat-icon" aria-hidden="true">💰</div>
           <p class="progress-stat-label">Saved So Far</p>
           <p class="progress-stat-value" id="progStatActual">£0</p>
           <div class="progress-stat-meter">
@@ -303,7 +304,7 @@
       <section class="block progress-chart-block" aria-labelledby="chartHeading">
         <div class="block-head">
           <div class="block-head-left">
-            <span class="block-head-icon icon-purple" aria-hidden="true">�</span>
+            <span class="block-head-icon icon-purple" aria-hidden="true">📉</span>
             <h2 id="chartHeading">Savings Analysis</h2>
           </div>
           <div class="chart-legend">
@@ -508,9 +509,9 @@
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    // Firebase config - replace with your own config from Firebase Console
+    // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyBMl2VTHDGOa77ClvfJZj1-YxcPbv1_HWQ",
       authDomain: "gcfinance-80a66.firebaseapp.com",
@@ -520,57 +521,73 @@
       appId: "1:110706508154:web:8da432d1b3840deb7dd6c3"
     };
 
-    // Initialize Firebase (will fail gracefully if not configured)
     let db = null;
     let unsubscribe = null;
     let syncEnabled = false;
+
+    const badge = document.getElementById("syncBadge");
+    function setBadge(text, status) {
+      if (badge) badge.textContent = text;
+      document.body.classList.toggle("synced", status === "ok");
+      document.body.classList.toggle("sync-error", status === "error");
+    }
 
     try {
       const app = initializeApp(firebaseConfig);
       db = getFirestore(app);
       syncEnabled = true;
+      setBadge("Connecting…", "");
     } catch (e) {
-      console.log("Firebase not configured - sync disabled");
+      console.log("Firebase not configured — sync disabled");
+      setBadge("Local", "");
     }
 
-    // Sync to cloud
+    // Sync to cloud — serialize as JSON string to preserve arrays
     async function syncToCloud(data) {
       if (!db || !syncEnabled) return;
       try {
-        await setDoc(doc(db, "users", "shared"), data, { merge: true });
-        document.body.classList.add("synced");
-        document.body.classList.remove("sync-error");
+        await setDoc(doc(db, "users", "shared"), { payload: JSON.stringify(data) });
+        setBadge("Live · Synced", "ok");
       } catch (e) {
         console.error("Sync error:", e);
-        document.body.classList.add("sync-error");
+        setBadge("Sync error", "error");
       }
     }
 
-    // Listen for cloud changes
-    async function startCloudSync(onData) {
+    // Listen for cloud changes — parse the JSON string back
+    function startCloudSync(onData) {
       if (!db || !syncEnabled) return;
       try {
         const docRef = doc(db, "users", "shared");
-        unsubscribe = onSnapshot(docRef, (doc) => {
-          if (doc.exists()) {
-            onData(doc.data());
+        unsubscribe = onSnapshot(docRef, (snap) => {
+          if (snap.exists()) {
+            const raw = snap.data();
+            try {
+              const parsed = raw.payload ? JSON.parse(raw.payload) : raw;
+              onData(parsed);
+            } catch {
+              // Fallback: data was stored in old format (plain object)
+              onData(raw);
+            }
           }
+        }, (err) => {
+          console.error("Cloud sync error:", err);
+          setBadge("Sync error", "error");
         });
+        setBadge("Live · Synced", "ok");
       } catch (e) {
         console.error("Cloud sync error:", e);
+        setBadge("Sync error", "error");
       }
     }
 
-    // Stop cloud sync
     function stopCloudSync() {
-      if (unsubscribe) {
-        unsubscribe();
-        unsubscribe = null;
-      }
+      if (unsubscribe) { unsubscribe(); unsubscribe = null; }
     }
 
-    // Export for use in app.js
+    // Export and signal readiness
     window.cloudSync = { syncToCloud, startCloudSync, stopCloudSync, isEnabled: () => syncEnabled };
+    window.dispatchEvent(new Event("cloudSyncReady"));
   </script>
   <script src="./app.js"></script>
 </body>

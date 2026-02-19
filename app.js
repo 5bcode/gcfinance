@@ -81,6 +81,8 @@ function loadState() {
   return structuredClone(DEFAULT_DATA);
 }
 
+let _skipCloudSync = false; // Guard to prevent sync loop
+
 function saveState() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -88,8 +90,8 @@ function saveState() {
     // ignore storage errors (private mode etc.)
   }
 
-  // Sync to cloud if available
-  if (window.cloudSync && window.cloudSync.isEnabled()) {
+  // Sync to cloud if available (skip if this save was triggered by incoming cloud data)
+  if (!_skipCloudSync && window.cloudSync && window.cloudSync.isEnabled()) {
     window.cloudSync.syncToCloud(state);
   }
 }
@@ -1994,38 +1996,36 @@ function wireEvents() {
 
 let cloudDataLoaded = false;
 
+function initCloudSync() {
+  if (!window.cloudSync || !window.cloudSync.isEnabled()) return;
+
+  window.cloudSync.startCloudSync((cloudData) => {
+    if (!cloudData) return;
+
+    // Use a flag to prevent saveState() from pushing this back to cloud
+    _skipCloudSync = true;
+    state = cloudData;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    cloudDataLoaded = true;
+    renderApp();
+    _skipCloudSync = false;
+  });
+}
+
 function bootstrap() {
   document.body.classList.add("entry-anim");
   setTimeout(() => document.body.classList.remove("entry-anim"), 1000);
 
-  // Try to load from cloud first, then local
-  if (window.cloudSync && window.cloudSync.isEnabled()) {
-    // Start listening for cloud changes
-    window.cloudSync.startCloudSync((cloudData) => {
-      if (cloudData && !cloudDataLoaded) {
-        // First time getting cloud data - use it
-        state = cloudData;
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-        cloudDataLoaded = true;
-        renderApp();
-      } else if (cloudData && cloudDataLoaded) {
-        // Subsequent changes - merge them
-        state = cloudData;
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-        renderApp();
-      }
-    });
-
-    // Mark as synced if cloud is connected
-    setTimeout(() => {
-      if (window.cloudSync && window.cloudSync.isEnabled()) {
-        document.body.classList.add("synced");
-      }
-    }, 1000);
-  }
-
   renderApp();
   wireEvents();
+
+  // Connect to cloud sync — may already be ready or may arrive later
+  if (window.cloudSync) {
+    initCloudSync();
+  } else {
+    window.addEventListener("cloudSyncReady", () => initCloudSync(), { once: true });
+  }
+
   // Redraw chart on resize
   let resizeTimer;
   window.addEventListener("resize", () => {
