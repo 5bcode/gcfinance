@@ -51,6 +51,7 @@
         </label>
         <button id="uploadDataBtn" class="btn btn-ghost" type="button" title="Upload local data to cloud">☁
           Upload</button>
+        <button id="resetDataBtn" class="nav-reset-btn" type="button" title="Reset all data to defaults">↺</button>
         <span class="nav-badge" id="syncBadge">Local</span>
       </div>
     </nav>
@@ -64,11 +65,33 @@
         <p class="lead">Tracking our savings, reaching our goals, and enjoying the journey.</p>
       </div>
 
-      <div class="hero-meta">
-        <p class="meta-label">Last updated</p>
-        <p id="asOfDate" class="meta-value">Today</p>
-        <button id="resetDataBtn" class="btn-danger-soft" type="button" title="Reset all data to defaults">↺ Reset
-          data</button>
+      <div class="hero-assign">
+        <div class="hero-assign-header">
+          <div class="hero-assign-title">
+            <span class="block-head-icon icon-teal" aria-hidden="true">⚡</span>
+            <h2 id="allocatorHeading">Quick assign</h2>
+          </div>
+          <button id="autoAssignBtn" class="btn btn-secondary btn-sm" type="button">✦ Auto-assign</button>
+        </div>
+        <form id="allocationForm" class="hero-assign-form">
+          <div class="hero-assign-field">
+            <label for="allocationAccount">From account</label>
+            <select id="allocationAccount" required></select>
+          </div>
+          <div class="hero-assign-field">
+            <label for="allocationSubgoal">To sub-goal</label>
+            <select id="allocationSubgoal" required></select>
+          </div>
+          <div class="hero-assign-field">
+            <label for="allocationAmount">Amount (£)</label>
+            <input id="allocationAmount" type="number" min="0" step="50" placeholder="e.g. 500" required />
+          </div>
+          <div class="hero-assign-field hero-assign-submit">
+            <button class="btn btn-primary" type="submit">Assign →</button>
+          </div>
+        </form>
+        <p id="allocatorMessage" class="allocator-message" aria-live="polite"></p>
+        <p class="hero-assign-meta">Last updated: <span id="asOfDate">Today</span></p>
       </div>
     </header>
 
@@ -176,31 +199,7 @@
             <div id="simpleAccountsSummary" class="simple-accounts-grid"></div>
           </section>
 
-          <!-- Assign money -->
-          <section class="block" aria-labelledby="allocatorHeading">
-            <div class="block-head">
-              <div class="block-head-left">
-                <span class="block-head-icon icon-teal" aria-hidden="true">⚡</span>
-                <h2 id="allocatorHeading">Assign money</h2>
-              </div>
-              <button id="autoAssignBtn" class="btn btn-secondary" type="button">✦ Auto-assign</button>
-            </div>
 
-            <form id="allocationForm" class="allocator-form">
-              <label for="allocationAccount">From account</label>
-              <select id="allocationAccount" required></select>
-
-              <label for="allocationSubgoal">To sub-goal</label>
-              <select id="allocationSubgoal" required></select>
-
-              <label for="allocationAmount">Amount (£)</label>
-              <input id="allocationAmount" type="number" min="0" step="50" placeholder="e.g. 500" required />
-
-              <button class="btn btn-primary" type="submit">Assign funds →</button>
-            </form>
-
-            <p id="allocatorMessage" class="allocator-message" aria-live="polite"></p>
-          </section>
 
           <!-- Allocation ledger -->
           <section class="block simple-mode-hidden" aria-labelledby="ledgerHeading">
