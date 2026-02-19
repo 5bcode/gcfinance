@@ -1962,6 +1962,22 @@ td:last-child {
   color: var(--ink);
 }
 
+/* ── Provider sub-group header ─────────────────────────────────────────── */
+.account-provider-header td {
+  padding: 10px 12px 4px;
+  border-bottom: none;
+}
+
+.account-provider-label {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  opacity: 0.7;
+}
+
 /* Numeric columns align right */
 .number,
 th.number,

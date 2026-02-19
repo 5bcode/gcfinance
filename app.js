@@ -472,28 +472,38 @@ function renderAccounts(derived) {
 
   tbody.innerHTML = sortedTypes
     .map(([typeName, accounts]) => {
-      const groupHeader = `
-        <tr class="account-group-header">
-          <td colspan="4"><span class="account-group-label">${escapeHtml(typeName)}</span></td>
-        </tr>`;
+      const groupHeader =
+        `<tr class="account-group-header"><td colspan="4"><span class="account-group-label">${escapeHtml(typeName)}</span></td></tr>`;
 
-      const rows = accounts
-        .map((account) => {
+      // Sub-group accounts within this type by provider name
+      const providerMap = new Map();
+      accounts.forEach((account) => {
+        const key = (account.provider || "").trim() || "\u2014";
+        if (!providerMap.has(key)) providerMap.set(key, []);
+        providerMap.get(key).push(account);
+      });
+      const sortedProviders = [...providerMap.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+      const multiProvider = providerMap.size > 1;
+
+      const rows = sortedProviders.map(([providerName, provAccounts]) => {
+        const subHeader = multiProvider
+          ? `<tr class="account-provider-header"><td colspan="4"><span class="account-provider-label">${escapeHtml(providerName)}</span></td></tr>`
+          : "";
+
+        const provRows = provAccounts.map((account) => {
           const availableClass = account.available < 0 ? "number negative" : "number";
           const ownerKey = OWNER_COLORS[account.owner] || "other";
 
-          // In edit mode: separate owner select + provider input stacked in one cell
-          // In view mode: pill + provider name side by side
           const accountCell = acctEditMode
             ? `<div class="acct-cell-edit">
                 <select data-field="owner" class="owner-pill owner-pill--${ownerKey}" aria-label="Account owner">${OWNERS.map(
               (o) => `<option value="${o}"${o === account.owner ? " selected" : ""}>${escapeHtml(o)}</option>`
             ).join("")}</select>
-                <input data-field="provider" value="${escapeHtml(account.provider || "")}" placeholder="Provider…" aria-label="Provider" />
+                <input data-field="provider" value="${escapeHtml(account.provider || "")}" placeholder="Provider\u2026" aria-label="Provider" />
               </div>`
             : `<div class="acct-cell-view">
                 <span class="owner-pill-label owner-pill-label--${ownerKey}">${escapeHtml(account.owner)}</span>
-                <span class="acct-provider">${escapeHtml(account.provider || "—")}</span>
+                <span class="acct-provider">${escapeHtml(account.provider || "\u2014")}</span>
               </div>`;
 
           const balanceCell = acctEditMode
@@ -504,15 +514,16 @@ function renderAccounts(derived) {
             ? `<button type="button" class="row-remove" data-action="remove-account">Remove</button>`
             : ``;
 
-          return `
-            <tr data-account-id="${account.id}">
+          return `<tr data-account-id="${account.id}">
               <td>${accountCell}</td>
               <td class="number">${balanceCell}</td>
               <td class="${availableClass}">${GBP.format(account.available)}</td>
               <td>${removeCell}</td>
             </tr>`;
-        })
-        .join("");
+        }).join("");
+
+        return subHeader + provRows;
+      }).join("");
 
       return groupHeader + rows;
     })
