@@ -259,6 +259,13 @@ body {
   justify-content: flex-end;
 }
 
+/* Nav actions container */
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .nav-badge {
   display: inline-flex;
   align-items: center;
@@ -272,6 +279,196 @@ body {
   background: var(--surface);
   letter-spacing: 0.06em;
   text-transform: uppercase;
+}
+
+/* Simple Mode Toggle */
+.simple-mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  margin-right: 12px;
+}
+
+.simple-mode-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.simple-mode-toggle input {
+  display: none;
+}
+
+.simple-mode-switch {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  background: var(--bg-3);
+  border-radius: 11px;
+  transition: background 0.2s ease;
+}
+
+.simple-mode-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  background: var(--muted);
+  border-radius: 50%;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.simple-mode-toggle input:checked + .simple-mode-switch {
+  background: var(--brand);
+}
+
+.simple-mode-toggle input:checked + .simple-mode-switch::after {
+  transform: translateX(18px);
+  background: white;
+}
+
+/* Simple Mode Visibility */
+.simple-mode-only {
+  display: none;
+}
+
+body.simple-mode .simple-mode-only {
+  display: block;
+}
+
+body.simple-mode .simple-mode-hidden {
+  display: none !important;
+}
+
+/* Simple Accounts Grid */
+.simple-accounts-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 640px) {
+  .simple-accounts-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.simple-account-card {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+}
+
+.simple-account-card .owner-icon {
+  font-size: 2rem;
+  margin-bottom: 8px;
+}
+
+.simple-account-card .owner-name {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.simple-account-card .owner-total {
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-family: var(--font-display);
+}
+
+.simple-account-card--gary .owner-total {
+  color: var(--brand-light);
+}
+
+.simple-account-card--catherine .owner-total {
+  color: var(--accent);
+}
+
+.simple-account-card--joint .owner-total {
+  color: var(--brand);
+}
+
+/* Simple Goal Board */
+.simple-goal-board {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.simple-goal-card {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.simple-goal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.simple-goal-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+  font-family: var(--font-display);
+}
+
+.simple-goal-progress-badge {
+  background: var(--brand);
+  color: white;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.simple-goal-metrics {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 16px;
+}
+
+.simple-goal-metric {
+  text-align: center;
+}
+
+.simple-goal-metric-label {
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 2px;
+}
+
+.simple-goal-metric-value {
+  font-size: 1.1rem;
+  font-weight: 600;
+  font-family: var(--font-display);
+}
+
+.simple-goal-progress-track {
+  height: 8px;
+  background: var(--bg-3);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.simple-goal-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--brand-light), var(--brand));
+  border-radius: 4px;
+  transition: width 0.3s ease;
 }
 
 /* ── Custom Scrollbar ──────────────────────────────────────────────────── */

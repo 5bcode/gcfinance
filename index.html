@@ -44,6 +44,11 @@
         <span class="brand-wordmark">Savin<span>CGs</span></span>
       </a>
       <div class="nav-actions">
+        <label class="simple-mode-toggle">
+          <span class="simple-mode-label">Simple</span>
+          <input type="checkbox" id="simpleModeToggle" />
+          <span class="simple-mode-switch"></span>
+        </label>
         <span class="nav-badge">Live · Synced</span>
       </div>
     </nav>
@@ -117,20 +122,20 @@
         <div class="workspace-column">
 
           <!-- Accounts -->
-          <section class="block" aria-labelledby="accountsHeading">
+          <section class="block simple-mode-hidden" aria-labelledby="accountsHeading">
             <div class="block-head">
               <div class="block-head-left">
                 <span class="block-head-icon icon-purple" aria-hidden="true">🏦</span>
                 <h2 id="accountsHeading">Accounts</h2>
               </div>
               <div style="display:flex;gap:8px;align-items:center;">
-                <button id="acctEditBtn" class="btn btn-ghost" type="button">✏ Edit</button>
-                <button id="addAccountBtn" class="btn btn-secondary" type="button">+ Add account</button>
+                <button id="acctEditBtn" class="btn btn-ghost simple-mode-hidden" type="button">✏ Edit</button>
+                <button id="addAccountBtn" class="btn btn-secondary simple-mode-hidden" type="button">+ Add account</button>
               </div>
             </div>
             <p class="block-note">Track each person's account separately, then combine for planning.</p>
 
-            <div id="accountFilterBar" class="account-filter-bar"></div>
+            <div id="accountFilterBar" class="account-filter-bar simple-mode-hidden"></div>
 
             <div class="table-wrap">
               <table id="accountsTable" class="accounts-table" data-edit="false">
@@ -153,6 +158,19 @@
                 <tbody id="accountsTbody"></tbody>
               </table>
             </div>
+          </section>
+
+          <!-- Simple Accounts Summary -->
+          <section class="block simple-mode-only" aria-labelledby="simpleAccountsHeading" hidden>
+            <div class="block-head">
+              <div class="block-head-left">
+                <span class="block-head-icon icon-purple" aria-hidden="true">🏦</span>
+                <h2 id="simpleAccountsHeading">Funds Overview</h2>
+              </div>
+            </div>
+            <p class="block-note">Your total funds at a glance.</p>
+
+            <div id="simpleAccountsSummary" class="simple-accounts-grid"></div>
           </section>
 
           <!-- Assign money -->
@@ -182,7 +200,7 @@
           </section>
 
           <!-- Allocation ledger -->
-          <section class="block" aria-labelledby="ledgerHeading">
+          <section class="block simple-mode-hidden" aria-labelledby="ledgerHeading">
             <div class="block-head">
               <div class="block-head-left">
                 <span class="block-head-icon icon-amber" aria-hidden="true">📋</span>
@@ -215,17 +233,30 @@
         </div>
 
         <!-- Goals -->
-        <section class="block goals-panel" aria-labelledby="goalsHeading">
+        <section class="block goals-panel simple-mode-hidden" aria-labelledby="goalsHeading">
           <div class="block-head">
             <div class="block-head-left">
               <span class="block-head-icon icon-purple" aria-hidden="true">🎯</span>
               <h2 id="goalsHeading">Goals &amp; sub-goals</h2>
             </div>
-            <button id="addGoalBtn" class="btn btn-secondary" type="button">+ Add goal</button>
+            <button id="addGoalBtn" class="btn btn-secondary simple-mode-hidden" type="button">+ Add goal</button>
           </div>
           <p class="block-note">Example: House goal with Deposit, Solicitor Fees, and Moving Costs sub-goals.</p>
 
           <div id="goalBoard" class="goal-board"></div>
+        </section>
+
+        <!-- Simple Goals Overview -->
+        <section class="block goals-panel simple-mode-only" aria-labelledby="simpleGoalsHeading" hidden>
+          <div class="block-head">
+            <div class="block-head-left">
+              <span class="block-head-icon icon-purple" aria-hidden="true">🎯</span>
+              <h2 id="simpleGoalsHeading">Goals Progress</h2>
+            </div>
+          </div>
+          <p class="block-note">Overall progress towards your goals.</p>
+
+          <div id="simpleGoalBoard" class="simple-goal-board"></div>
         </section>
       </div>
 

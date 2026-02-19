@@ -5,6 +5,7 @@ const GBP = new Intl.NumberFormat("en-GB", {
 });
 
 const STORAGE_KEY = "gcfinance-v1";
+const SIMPLE_MODE_KEY = "gcfinance-simple-mode";
 
 const OWNERS = ["Gary", "Catherine", "Joint"];
 
@@ -93,6 +94,7 @@ let state = loadState();
 // ── UI state (not persisted) ───────────────────────────────────────────────────
 let acctOwnerFilter = new Set(OWNERS); // which owners to show; all active by default
 let acctEditMode = false;              // whether the accounts table is in edit mode
+let simpleMode = localStorage.getItem(SIMPLE_MODE_KEY) === "true"; // simple mode hides details, shows totals
 
 // ── Utilities ──────────────────────────────────────────────────────────────────
 
@@ -539,6 +541,98 @@ function renderAllocationForm(derived) {
 
   const submit = form.querySelector('button[type="submit"]');
   if (submit) submit.disabled = !canAssign;
+}
+
+// Simple Mode: Render accounts summary by owner
+function renderSimpleAccounts(derived) {
+  const container = document.getElementById("simpleAccountsSummary");
+  if (!container) return;
+
+  // Calculate totals by owner
+  const ownerTotals = { Gary: 0, Catherine: 0, Joint: 0 };
+  derived.accountsDerived.forEach((account) => {
+    if (ownerTotals.hasOwnProperty(account.owner)) {
+      ownerTotals[account.owner] += account.balance;
+    }
+  });
+
+  const ownerIcons = { Gary: "👤", Catherine: "👤", Joint: "🤝" };
+  const ownerClasses = { Gary: "gary", Catherine: "catherine", Joint: "joint" };
+
+  container.innerHTML = OWNERS.map((owner) => `
+    <div class="simple-account-card simple-account-card--${ownerClasses[owner]}">
+      <div class="owner-icon">${ownerIcons[owner]}</div>
+      <div class="owner-name">${owner}</div>
+      <div class="owner-total">${GBP.format(ownerTotals[owner])}</div>
+    </div>
+  `).join("");
+}
+
+// Simple Mode: Render goals overview with overall progress
+function renderSimpleGoals(derived) {
+  const board = document.getElementById("simpleGoalBoard");
+  if (!board) return;
+
+  if (!derived.goalsDerived.length) {
+    board.innerHTML = '<p class="muted">No goals yet. Add one and break it down into sub-goals.</p>';
+    return;
+  }
+
+  board.innerHTML = derived.goalsDerived
+    .map((goal) => {
+      const progress = goal.target > 0 ? Math.round((goal.assigned / goal.target) * 100) : 0;
+      return `
+        <article class="simple-goal-card">
+          <div class="simple-goal-header">
+            <span class="simple-goal-name">${escapeHtml(goal.name)}</span>
+            <span class="simple-goal-progress-badge">${progress}%</span>
+          </div>
+          <div class="simple-goal-metrics">
+            <div class="simple-goal-metric">
+              <div class="simple-goal-metric-label">Target</div>
+              <div class="simple-goal-metric-value">${GBP.format(goal.target)}</div>
+            </div>
+            <div class="simple-goal-metric">
+              <div class="simple-goal-metric-label">Saved</div>
+              <div class="simple-goal-metric-value">${GBP.format(goal.assigned)}</div>
+            </div>
+            <div class="simple-goal-metric">
+              <div class="simple-goal-metric-label">Remaining</div>
+              <div class="simple-goal-metric-value">${GBP.format(goal.remaining)}</div>
+            </div>
+          </div>
+          <div class="simple-goal-progress-track">
+            <div class="simple-goal-progress-fill" style="width: ${progress}%"></div>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+// Update simple mode visibility
+function updateSimpleMode() {
+  const body = document.body;
+  const toggle = document.getElementById("simpleModeToggle");
+
+  if (simpleMode) {
+    body.classList.add("simple-mode");
+    // Show simple mode sections
+    document.querySelectorAll(".simple-mode-only").forEach((el) => el.removeAttribute("hidden"));
+    // Hide detailed sections
+    document.querySelectorAll(".simple-mode-hidden").forEach((el) => el.setAttribute("hidden", ""));
+  } else {
+    body.classList.remove("simple-mode");
+    // Hide simple mode sections
+    document.querySelectorAll(".simple-mode-only").forEach((el) => el.setAttribute("hidden", ""));
+    // Show detailed sections
+    document.querySelectorAll(".simple-mode-hidden").forEach((el) => el.removeAttribute("hidden"));
+  }
+
+  // Persist simple mode preference
+  localStorage.setItem(SIMPLE_MODE_KEY, simpleMode);
+
+  if (toggle) toggle.checked = simpleMode;
 }
 
 function renderAllocations(derived) {
@@ -1180,9 +1274,12 @@ function renderProgress() {
 function renderApp() {
   sanitizeState();
   const derived = deriveState();
+  updateSimpleMode();
   renderSummary(derived);
   renderAccounts(derived);
+  renderSimpleAccounts(derived);
   renderGoals(derived);
+  renderSimpleGoals(derived);
   renderAllocationForm(derived);
   renderAllocations(derived);
   renderProgress();
@@ -1328,6 +1425,12 @@ function wireEvents() {
       // Small delay to ensure layout is updated after display:block
       requestAnimationFrame(() => renderProgressChart());
     }
+  });
+
+  // ── Simple mode toggle ─────────────────────────────────────────────────────
+  document.getElementById("simpleModeToggle")?.addEventListener("change", (e) => {
+    simpleMode = e.target.checked;
+    updateSimpleMode();
   });
 
   // ── Accounts table — inline editing ──────────────────────────────────────
