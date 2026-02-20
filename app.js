@@ -496,14 +496,14 @@ function renderAccounts(derived) {
 
           const accountCell = acctEditMode
             ? `<div class="acct-cell-edit">
+                <input data-field="provider" value="${escapeHtml(account.provider || "")}" placeholder="Provider\u2026" aria-label="Provider" />
                 <select data-field="owner" class="owner-pill owner-pill--${ownerKey}" aria-label="Account owner">${OWNERS.map(
               (o) => `<option value="${o}"${o === account.owner ? " selected" : ""}>${escapeHtml(o)}</option>`
             ).join("")}</select>
-                <input data-field="provider" value="${escapeHtml(account.provider || "")}" placeholder="Provider\u2026" aria-label="Provider" />
               </div>`
             : `<div class="acct-cell-view">
-                <span class="owner-pill-label owner-pill-label--${ownerKey}">${escapeHtml(account.owner)}</span>
                 <span class="acct-provider">${escapeHtml(account.provider || "\u2014")}</span>
+                <span class="owner-pill-label owner-pill-label--${ownerKey}">${escapeHtml(account.owner)}</span>
               </div>`;
 
           const balanceCell = acctEditMode
