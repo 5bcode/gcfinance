@@ -1,257 +1,383 @@
-# Test Coverage Analysis — SavinCGs (gcfinance)
+# Test Coverage Analysis — GCFinance
 
 **Date**: 2026-02-20
-**Branch**: `claude/analyze-test-coverage-Z6kcX`
+**Branch**: `claude/analyze-test-coverage-EvVIH`
+
+---
+
+## Executive Summary
+
+**Current test coverage: 0%**
+
+No test files, no test runner, no test configuration exist anywhere in the
+project. The entire application is a single 2,103-line `app.js` loaded as a
+global script with no ES module exports, making tests non-trivial but entirely
+achievable with a small refactor.
+
+This document identifies what to test, in what order, and why — using a
+risk-adjusted ROI approach rather than chasing a line-coverage number.
 
 ---
 
 ## Current State
 
-**Test coverage: 0%**
+The application is structured as follows:
 
-There are no test files, no test runner, and no test configuration anywhere in the project. The `output/playwright/` directory contains UI screenshots (likely generated manually), but there are no Playwright test scripts.
+| File | Lines | Role |
+|------|-------|------|
+| `app.js` | 2,103 | All business logic, rendering, event wiring |
+| `index.html` | 598 | Markup + inline Firebase SDK |
+| `styles.css` | 2,858 | Presentation only |
 
-The entire application lives in a single 2103-line `app.js` loaded as a global script, plus inline Firebase code in `index.html`. All functions share a single global `state` object and many manipulate the DOM directly, which makes testing non-trivial but far from impossible.
+All 47 functions share a single global `state` object and many manipulate the
+DOM directly. There are two structural blockers to unit testing right now:
 
----
+1. **No exports.** Functions are global; a test runner cannot import them
+   without a workaround or small refactor.
+2. **State coupling.** Core functions read from / write to the `state` variable
+   in module scope. Tests must set up that variable before each case.
 
-## Testing Infrastructure Gap
-
-Before writing any tests, the project needs a test setup. Recommended approach:
-
-1. **Add `package.json`** with [Vitest](https://vitest.dev/) + `jsdom` for unit/integration tests of logic functions (no build step required, handles ES2022 well).
-2. **Add Playwright** for E2E tests of critical user flows (the `output/playwright` directory suggests this tooling is already familiar).
-
-The two biggest structural obstacles to unit testing right now are:
-- All functions are global (no `export`), so they can't be imported by a test runner without refactoring or using a workaround like `globalThis` injection.
-- Several core functions read from / write to the global `state` variable directly, meaning tests must set up that variable before each case.
-
-Both are manageable. The recommended path is to extract pure business-logic functions into a separate `lib.js` ES module that `app.js` imports. This has zero user-facing impact and makes those functions directly testable.
+Both are solvable without changing any observable behaviour for end users.
 
 ---
 
-## Priority Matrix
+## ROI Framework — What to Test and Why
 
-| Priority | Area | Why |
-|----------|------|-----|
-| P0 | Core financial logic (`deriveState`, `assignFunds`, `autoAssignReadyCash`, `addOrUpdateAllocation`) | Wrong numbers = broken product |
-| P1 | Data integrity (`sanitizeState`, `loadState`) | Corrupt persisted state = data loss |
-| P2 | Utility functions (`normalizeAmount`, `escapeHtml`, `flattenSubGoals`, `inferTypeFromName`) | High reuse across the codebase |
-| P3 | E2E critical user flows | Catches regressions integration tests miss |
+Before writing any test, ask three questions:
+
+| Question | Filter |
+|----------|--------|
+| What bug does this prevent? | Skip if the answer is "none likely" |
+| How costly is that bug? | Prioritise financial errors over cosmetic ones |
+| Is it already covered indirectly? | Skip pure render functions; E2E covers them |
+
+Applying this to the codebase produces four priority bands:
+
+| Priority | Area | ROI Rationale |
+|----------|------|---------------|
+| **P0** | Core financial logic | Wrong numbers = broken product trust, potential financial harm |
+| **P1** | Data integrity (load/sanitize) | Silent corruption at startup = hard-to-debug data loss |
+| **P2** | Pure utility functions | Zero-setup tests, reused everywhere, high catch rate |
+| **P3** | E2E critical user flows | Catches regressions that unit tests can't see |
+
+---
+
+## Testing Infrastructure — Recommended Setup
+
+### Step 1: Add `package.json`
+
+```json
+{
+  "name": "gcfinance",
+  "type": "module",
+  "scripts": {
+    "test":          "vitest run",
+    "test:watch":    "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "vitest":            "^2.0.0",
+    "@vitest/coverage-v8": "^2.0.0",
+    "jsdom":             "^25.0.0"
+  }
+}
+```
+
+### Step 2: Add `vitest.config.js`
+
+```js
+import { defineConfig } from 'vitest/config'
+
+export default defineConfig({
+  test: {
+    environment: 'jsdom',
+    coverage: {
+      provider: 'v8',
+      include: ['lib.js'],
+      thresholds: {
+        statements: 70,
+        branches:   65,
+        functions:  70,
+        lines:      70,
+      },
+    },
+  },
+})
+```
+
+### Step 3: Extract testable code into `lib.js`
+
+Create a new `lib.js` that exports the pure/logic functions (no DOM, no global
+`state`). Update `app.js` to import from `lib.js`. No user-facing change.
+
+Functions to move into `lib.js`:
+
+- `normalizeAmount`
+- `escapeHtml`
+- `flattenSubGoals`
+- `inferTypeFromName`
+- `makeId`
+- `dateLabel`
+- `deriveState` — extract the pure computation; keep the `state`-reading wrapper in `app.js`
+- `sanitizeState` — extract the validation logic as a pure function taking a state object
+- `addOrUpdateAllocation` — extract the merge/append decision as a pure function
+- `autoAssignReadyCash` — extract the allocation algorithm as a pure function
+
+---
+
+## P2 — Utility Functions (Start Here)
+
+These are pure functions with no side effects. They take an input and return an
+output. Write these tests first: they require zero setup, run in milliseconds,
+and validate the building blocks every other function depends on.
+
+### `normalizeAmount(value)`
+
+Used for every financial figure stored or displayed. The coercion rules are
+intentional but must be pinned down.
+
+**Target coverage: 100%**
+
+| Input | Expected output | Why it matters |
+|-------|----------------|----------------|
+| `500` | `500` | Positive integer passthrough |
+| `1.7` | `2` | Rounds up (Math.round) |
+| `1.4` | `1` | Rounds down |
+| `-50` | `0` | Negatives floored to 0 |
+| `0` | `0` | Zero identity |
+| `"500"` | `500` | String coercion (used from input fields) |
+| `""` | `0` | Empty string → 0 |
+| `null` | `0` | Null safety |
+| `undefined` | `0` | Undefined safety |
+| `NaN` | `0` | NaN safety |
+| `Infinity` | `Infinity` | Edge case: document or guard if undesired |
+
+### `escapeHtml(value)`
+
+Every piece of user-supplied text rendered into `innerHTML` passes through
+this. A missed escape is an XSS vulnerability.
+
+**Target coverage: 100%**
+
+| Input | Expected output |
+|-------|----------------|
+| `"&"` | `"&amp;"` |
+| `"<"` | `"&lt;"` |
+| `">"` | `"&gt;"` |
+| `'"'` | `"&quot;"` |
+| `"'"` | `"&#39;"` |
+| `"<script>alert(1)</script>"` | fully escaped string |
+| `""` | `""` |
+| `42` (number) | `"42"` (coerced to string) |
+
+### `flattenSubGoals(goals)`
+
+Powers allocation dropdowns and `deriveState` aggregation. An off-by-one in
+indices breaks goal rendering and allocation matching.
+
+**Target coverage: 100%**
+
+| Scenario | Assertion |
+|----------|-----------|
+| Single goal, one sub-goal | Returns list of length 1; `goalIndex=0`, `subIndex=0`, correct `goalId`/`goalName` |
+| Two goals, two sub-goals each | Returns list of length 4; indices increment correctly |
+| Empty goals array | Returns `[]` |
+| Goal with zero sub-goals | Contributes nothing to output |
+
+### `inferTypeFromName(name)`
+
+Used in `sanitizeState` to guess a missing account type from its name. Wrong
+inference puts accounts in the wrong display group.
+
+**Target coverage: 100%**
+
+| Input | Expected output | Priority keyword |
+|-------|----------------|-----------------|
+| `"My ISA"` | `"ISA"` | `isa` (highest priority) |
+| `"Joint Account Savings"` | `"Joint Account"` | `joint` beats `saving` |
+| `"Rainy Day Savings"` | `"Savings"` | `saving` |
+| `"Main Current"` | `"Current Account"` | `current` |
+| `"Credit Card Backup"` | `"Credit Card"` | `credit` |
+| `"Pension Plan"` | `"Other"` | no keyword match |
+| `"SAVINGS"` | `"Savings"` | case-insensitive |
+| `""` | `"Other"` | empty string |
+| `null` | `"Other"` | `(null \|\| "")` guard |
+| `undefined` | `"Other"` | `(undefined \|\| "")` guard |
 
 ---
 
 ## P0 — Core Financial Logic
 
-These functions are the heart of the app. A silent bug here shows wrong balances or misallocates money without any error being thrown.
+These functions produce every number the user sees. A silent bug here shows
+wrong balances or misallocates money without throwing an error.
 
-### 1. `deriveState()` (line 317)
+**Target coverage: 95%+ branch coverage**
 
-This is the single most important function in the codebase. Every number displayed in the UI — total funds, ready-to-assign, goal progress percentages — flows from here. It iterates allocations, aggregates by account and sub-goal, and computes derived totals.
+### `deriveState(stateSnapshot)`
 
-**Missing test cases:**
-- Basic happy path: two accounts, one goal, one allocation → correct totals
-- Multiple allocations to the same sub-goal are summed correctly
-- An allocation referencing a deleted account is ignored (it shouldn't contribute to totals)
-- An allocation referencing a deleted sub-goal is ignored
-- `readyToAssign` goes negative when allocations exceed account balance (over-allocation scenario)
-- `overallProgress` caps at 100% even when assigned > target
-- `progress` on an individual goal/sub-goal caps at 100%
-- Empty state (no accounts, no goals) → all totals zero, no exceptions thrown
-- Goal with zero target → `progress` is 0, no divide-by-zero
+The single most important function. Every displayed number flows from here.
 
-### 2. `assignFunds(accountId, subGoalId, requestedAmount)` (line 1365)
+| Scenario | What to assert |
+|----------|---------------|
+| Basic: two accounts, one goal, one allocation | `totalFunds`, `totalAssigned`, `readyToAssign`, `overallProgress` are all correct |
+| Multiple allocations to the same sub-goal | Amounts are summed, not duplicated |
+| Allocation references deleted account | Ignored; does not contribute to totals |
+| Allocation references deleted sub-goal | Ignored |
+| `readyToAssign` < 0 (over-allocation) | Returned as a negative number (visible to user as a warning) |
+| `overallProgress` when assigned > target | Capped at 100 |
+| Individual sub-goal `progress` when assigned > target | Capped at 100 |
+| Empty state (no accounts, no goals) | All totals zero; no exception thrown |
+| Goal with `target = 0` | `progress = 0`; no divide-by-zero |
 
-This function has the richest branching logic in the file. It validates inputs, derives live state, then decides how much to allocate.
+### `addOrUpdateAllocation(accountId, subGoalId, amountToAdd)`
 
-**Missing test cases:**
-- Happy path: assigns the requested amount when funds and sub-goal capacity are both sufficient
-- Amount is capped to `account.available` when `requestedAmount > available` (partial allocation)
-- Amount is capped to `subGoal.remaining` when `requestedAmount > remaining`
-- `requestedAmount = 0` → shows error toast, no allocation created
-- `requestedAmount < 0` → treated as 0 by `normalizeAmount`, shows error toast
-- Invalid `accountId` (account not found in derived state) → shows error toast
-- Invalid `subGoalId` → shows error toast
-- `account.available <= 0` → "Insufficient Funds" toast, no allocation
-- `subGoal.remaining <= 0` → "Goal Funded" toast, no allocation
-- Completing a sub-goal (remaining hits 0) triggers `triggerConfetti`
+The state mutation called by both `assignFunds` and `autoAssignReadyCash`.
+Merge vs. append behaviour is invisible in the UI but critical for correctness.
 
-### 3. `autoAssignReadyCash()` (line 1408)
+| Scenario | What to assert |
+|----------|---------------|
+| No existing allocation for the pair | New entry appended to `allocations` array |
+| Existing allocation for same `(accountId, subGoalId)` | Amount is summed (not duplicated), only one entry in array |
+| `amountToAdd = 0` | Early return; state unchanged |
+| `amountToAdd` is a float (e.g. `1.7`) | Stored as `2` after `normalizeAmount` |
 
-The auto-assign algorithm iterates accounts in order, draining each account across open sub-goals sequentially. The tricky part is that it tracks `remainingBySubGoal` locally (not re-deriving from state on each loop), so the local accounting must stay consistent with what gets committed to `state.allocations`.
+### `assignFunds(accountId, subGoalId, requestedAmount)`
 
-**Missing test cases:**
-- Single account, single sub-goal: full allocation when account balance ≥ target
-- Single account, multiple sub-goals: funds distributed in order, earlier sub-goals filled first
-- Multiple accounts, single sub-goal: first account fills the sub-goal, second account contributes nothing
-- Multiple accounts, multiple sub-goals: funds correctly spread across accounts and goals
-- No available funds (`account.available = 0` for all) → "No Funds" toast, no allocations added
-- All sub-goals already funded → "All Done!" toast, no allocations added
-- Partial funding: funds run out before all sub-goals are filled → correct partial allocations
-- An account that becomes exhausted mid-loop does not over-allocate
-- `assignedTotal` correctly reflects the sum of all allocations made
+Richest branching logic in the file. Each branch must be verified
+independently.
 
-### 4. `addOrUpdateAllocation(accountId, subGoalId, amountToAdd)` (line 1349)
+| Scenario | Expected outcome |
+|----------|----------------|
+| Happy path: funds and capacity both sufficient | `addOrUpdateAllocation` called with `requestedAmount`; success toast |
+| `requestedAmount > account.available` | Capped to `available`; partial toast shown |
+| `requestedAmount > subGoal.remaining` | Capped to `remaining`; partial toast shown |
+| `requestedAmount = 0` | Error toast; no allocation created |
+| `requestedAmount < 0` | Treated as 0; error toast |
+| `accountId` not found in derived state | Error toast; no allocation |
+| `subGoalId` not found in derived state | Error toast; no allocation |
+| `account.available <= 0` | "Insufficient Funds" toast; no allocation |
+| `subGoal.remaining <= 0` | "Goal Funded" toast; no allocation |
+| Completing a sub-goal (`remaining - applied <= 0`) | `triggerConfetti` called |
 
-This mutation is called by both `assignFunds` and `autoAssignReadyCash`. Its behaviour—merge vs. append—is invisible in the UI but critical for correctness.
+### `autoAssignReadyCash()`
 
-**Missing test cases:**
-- No existing allocation for the pair → new entry pushed to `state.allocations`
-- Existing allocation for the same `(accountId, subGoalId)` pair → amount is summed, not duplicated
-- `amountToAdd = 0` → early return, state unchanged
-- `amountToAdd` is a float (e.g. 1.7) → `normalizeAmount` rounds it to 2 before storing
+Iterates accounts and sub-goals sequentially. The local `remainingBySubGoal`
+tracking must stay consistent with what gets committed to `state.allocations`.
+
+| Scenario | What to assert |
+|----------|---------------|
+| Single account, single sub-goal; balance ≥ target | Sub-goal fully funded; correct allocation amount |
+| Single account, multiple sub-goals | Earlier sub-goals filled first; remainder goes to next |
+| Multiple accounts, single sub-goal | First account fills it; second account contributes nothing |
+| Multiple accounts, multiple sub-goals | Funds spread correctly across accounts and goals |
+| No available funds | "No Funds" toast; no allocations added |
+| All sub-goals already funded | "All Done!" toast; no allocations added |
+| Partial funding (funds run out before all goals filled) | Correct partial allocations; no over-allocation |
+| Account exhausted mid-loop | Does not over-allocate; moves to next account |
+| `assignedTotal` | Equals the sum of all allocation amounts added |
 
 ---
 
 ## P1 — Data Integrity
 
-These functions run at startup and when receiving cloud data. Bugs here corrupt the persisted state silently.
+These functions run at startup and when receiving cloud data. Bugs here corrupt
+persisted state silently and are the hardest to debug.
 
-### 5. `sanitizeState()` (line 250)
+**Target coverage: 90%+ branch coverage**
 
-Runs after loading state from localStorage or cloud. Removes orphaned allocations, backfills missing IDs, normalises amounts, and migrates old monthly-progress field names.
+### `loadState()`
 
-**Missing test cases:**
-- Allocations referencing non-existent `accountId` are removed
-- Allocations referencing non-existent `subGoalId` are removed
-- Allocations with `amount = 0` are removed
-- Accounts without an `id` get one generated
-- Accounts with an `owner` not in `["Gary", "Catherine", "Joint"]` default to `"Joint"`
-- Account `balance` of `-500` is normalised to `0`
-- Sub-goal `target` of `-100` is normalised to `0`
-- Old `monthlyProgress` shape (`planned`/`actual` per row) is migrated to `plannedGary`/`actualGary` correctly, preserving values
-- Missing `progressYear` field is backfilled with the current year
-- `monthlyProgress` array with wrong length (< 12 or > 12) is rebuilt from scratch
+Cold-start function. Its fallback behaviour is the last defence against corrupt
+localStorage.
 
-### 6. `loadState()` (line 62)
+| Scenario | Expected return |
+|----------|----------------|
+| No key in localStorage | Deep clone of `DEFAULT_DATA` |
+| Valid JSON with all required arrays | Parsed object returned |
+| Valid JSON missing `accounts` array | Falls back to `DEFAULT_DATA` |
+| Valid JSON missing `goals` array | Falls back to `DEFAULT_DATA` |
+| Valid JSON missing `allocations` array | Falls back to `DEFAULT_DATA` |
+| Corrupt JSON (`"{"`) | Exception caught silently; returns `DEFAULT_DATA` |
+| Missing `monthlyProgress` | Backfilled to 12 months of zeroes |
+| Missing `progressYear` | Backfilled to current year |
 
-The cold-start function. Its fallback behaviour is the last line of defence against a corrupt localStorage.
+### `sanitizeState(stateSnapshot)`
 
-**Missing test cases:**
-- No key in localStorage → returns a deep clone of `DEFAULT_DATA`
-- Valid JSON with required fields → returns parsed object
-- Valid JSON missing `accounts` array → falls back to `DEFAULT_DATA`
-- Valid JSON missing `goals` array → falls back to `DEFAULT_DATA`
-- Valid JSON missing `allocations` array → falls back to `DEFAULT_DATA`
-- Corrupt JSON (e.g. `"{"`) → exception caught silently, returns `DEFAULT_DATA`
-- `monthlyProgress` missing from otherwise valid data → backfilled to 12 months of zeroes
-- `progressYear` missing → backfilled to current year
+Runs after every load. Removes orphaned allocations, backfills missing IDs,
+normalises amounts, and migrates old field names.
 
----
-
-## P2 — Utility Functions
-
-Pure functions with no side effects. Very easy to test, high reuse.
-
-### 7. `normalizeAmount(value)` (line 113)
-
-Used for every financial figure stored or displayed. Silently coercing bad inputs is intentional, but the coercion rules must be verified.
-
-**Missing test cases:**
-- Positive integer → same value
-- Float (e.g. `1.7`) → rounds to `2` (`Math.round`)
-- Negative number → `0`
-- `0` → `0`
-- `"500"` (string) → `500`
-- `""` (empty string) → `0`
-- `null` → `0`
-- `undefined` → `0`
-- `NaN` → `0`
-- `Infinity` → `Infinity` (current behaviour — worth documenting or guarding)
-
-### 8. `escapeHtml(value)` (line 117)
-
-Every piece of user-supplied text rendered into innerHTML goes through this. A missed escape sequence is an XSS vulnerability.
-
-**Missing test cases:**
-- `&` → `&amp;`
-- `<` → `&lt;`
-- `>` → `&gt;`
-- `"` → `&quot;`
-- `'` → `&#39;`
-- String with all five characters: `<a href="/" onclick='alert(1)'>` → fully escaped
-- Empty string → `""`
-- Non-string input (e.g. a number) → coerced to string then escaped
-
-### 9. `flattenSubGoals(goals)` (line 134)
-
-Powers the allocation dropdowns and the `deriveState` aggregation. An off-by-one in indices breaks goal rendering.
-
-**Missing test cases:**
-- Single goal with one sub-goal → list of length 1 with correct `goalId`, `goalName`, `goalIndex=0`, `subIndex=0`
-- Two goals, two sub-goals each → list of length 4 with correct indices
-- Empty goals array → empty list
-- Goal with zero sub-goals → contributes nothing to the output list
-
-### 10. `inferTypeFromName(name)` (line 157)
-
-Used in `sanitizeState` to guess a missing account type from its name. Wrong inference means accounts are sorted into the wrong table group.
-
-**Missing test cases:**
-- `"My ISA"` → `"ISA"`
-- `"Joint Account Savings"` → `"Joint Account"` (contains "joint", which takes priority over "saving")
-- `"Rainy Day Savings"` → `"Savings"`
-- `"Main Current"` → `"Current Account"`
-- `"Credit Card Backup"` → `"Credit Card"`
-- `"Pension"` (no keyword match) → `"Other"`
-- Case-insensitivity: `"SAVINGS"` → `"Savings"`
-- Empty string → `"Other"`
-- `null` / `undefined` → `"Other"` (the function does `(name || "").toLowerCase()`, so this should be safe — confirm it)
+| Scenario | What to assert |
+|----------|---------------|
+| Allocation references non-existent `accountId` | Removed from `allocations` |
+| Allocation references non-existent `subGoalId` | Removed from `allocations` |
+| Allocation with `amount = 0` | Removed |
+| Account without `id` | Gets a generated id |
+| Account `owner` not in `["Gary","Catherine","Joint"]` | Defaulted to `"Joint"` |
+| Account `balance = -500` | Normalised to `0` |
+| Sub-goal `target = -100` | Normalised to `0` |
+| Legacy `monthlyProgress` with `planned`/`actual` | Migrated to `plannedGary`/`actualGary`; values preserved |
+| Missing `progressYear` | Backfilled with current year |
+| `monthlyProgress` array length < 12 or > 12 | Rebuilt from scratch |
 
 ---
 
 ## P3 — E2E Critical User Flows (Playwright)
 
-Unit tests cannot catch regressions that span event wiring, DOM rendering, and state persistence together. These flows should be covered with Playwright tests.
-
-**Flows to cover:**
+Unit tests cannot catch regressions that span event wiring, DOM rendering, and
+state persistence together. These nine flows should be covered with Playwright
+tests run against a local server.
 
 | Flow | Why it's critical |
-|------|-------------------|
-| Add an account via the wizard (all 5 steps) | Wizard state machine has multiple steps; skipping one leaves corrupt data |
-| Edit an account's balance inline and verify summary cards update | Core data-entry loop |
-| Create a goal with a sub-goal via the wizard | Goal creation affects allocation dropdowns |
+|------|--------------------|
+| Add an account via the wizard (all steps) | Multi-step state machine; skipping a step leaves corrupt data |
+| Edit an account balance inline; verify summary cards update | Core data-entry loop |
+| Create a goal with a sub-goal via the wizard | Affects allocation dropdowns |
 | Manually assign funds from an account to a sub-goal | Primary user action |
-| Auto-assign distributes remaining funds correctly | Algorithmic correctness visible in UI |
+| Auto-assign distributes remaining funds correctly | Algorithm correctness visible in UI |
 | Remove an allocation and verify balances recalculate | Ledger editing |
 | State persists across a page reload | localStorage round-trip |
 | Reset data restores defaults | Destructive action with confirmation dialog |
 | Simple mode toggle shows/hides correct sections | UI-mode switching |
 
+**Suggested tool:** Playwright (already familiar to the team; `output/playwright/`
+screenshots confirm prior exploration).
+
 ---
 
-## What Not to Test
+## What NOT to Test
 
 | Category | Examples | Reason |
 |----------|----------|--------|
-| Pure render functions (`renderAccounts`, `renderGoals`, etc.) | All `render*` functions | DOM assertions are brittle; covered by E2E |
+| Render functions | `renderAccounts`, `renderGoals`, etc. | DOM assertions are brittle; covered by E2E |
 | Animation helpers | `animateValue`, `triggerConfetti` | Visual/timing; not business logic |
-| Toast display | `showToast` | UI feedback; tested indirectly via E2E |
-| Firebase/cloud sync internals | `syncToCloud`, `startCloudSync` | Third-party SDK; mock at integration boundary |
-| Constants and configuration | `MONTHS`, `OWNERS`, `DEFAULT_DATA` | No logic |
-| `makeId` randomness | — | Non-deterministic; just verify it returns a non-empty string with the given prefix |
+| Toast display | `showToast` | Tested indirectly via E2E |
+| Firebase / cloud sync | `initCloudSync`, `saveState` cloud path | Third-party SDK; mock at the boundary |
+| Constants | `MONTHS`, `OWNERS`, `DEFAULT_DATA` | No logic |
+| `makeId` randomness | — | Non-deterministic; only verify it returns a non-empty string |
 
 ---
 
-## Suggested Coverage Targets
+## Coverage Targets
 
-Once infrastructure is in place:
+| Layer | Target | Rationale |
+|-------|--------|-----------|
+| P0 core financial logic | 95%+ branch | Financial correctness is non-negotiable |
+| P1 data integrity | 90%+ branch | Silent corruption is catastrophic |
+| P2 utility functions | 100% | Pure functions; trivial to achieve |
+| E2E critical flows | All 9 passing | Integration confidence |
 
-| Layer | Target |
-|-------|--------|
-| P0 core financial logic | 95%+ branch coverage |
-| P1 data integrity | 90%+ branch coverage |
-| P2 utility functions | 100% (they're small and pure) |
-| E2E critical flows | All 9 flows listed above passing |
+A global threshold of **70% line coverage** is a reasonable CI gate once the
+above layers are covered, since untested code will mostly be render and UI
+helpers that intentionally fall outside scope.
 
 ---
 
-## Recommended First Steps
+## Recommended Sequence
 
-1. Add `package.json` with `vitest` and `@vitest/coverage-v8` as dev dependencies.
-2. Extract the pure functions (`normalizeAmount`, `escapeHtml`, `flattenSubGoals`, `inferTypeFromName`, `deriveState` logic, `addOrUpdateAllocation` logic, `sanitizeState` logic) into `lib.js` as named exports.
-3. Import `lib.js` from `app.js` so runtime behaviour is unchanged.
-4. Write unit tests for P2 utilities first (easiest wins, no state setup needed).
-5. Write unit tests for P0/P1 functions with explicit state fixtures.
+1. Add `package.json`, `vitest.config.js`, and run `npm install`.
+2. Extract pure functions into `lib.js` as named exports; import from `app.js`.
+3. Write P2 utility tests first (no state setup needed; fastest wins).
+4. Write P0 core financial logic tests with explicit state fixtures.
+5. Write P1 data integrity tests with mocked `localStorage`.
 6. Add Playwright config and cover the 9 E2E flows.
-7. Wire coverage reporting into CI so regressions are caught automatically.
+7. Add coverage thresholds to CI so regressions are caught automatically.
