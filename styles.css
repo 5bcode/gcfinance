@@ -1218,6 +1218,9 @@ td:last-child {
 
 /* ── Hide empty action column in view mode ──────────────────────────────── */
 
+.accounts-table[data-edit="false"] colgroup col:first-child {
+  width: 56% !important;
+}
 .accounts-table[data-edit="false"] colgroup col:last-child {
   width: 0 !important;
 }
