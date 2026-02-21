@@ -531,6 +531,11 @@ function renderAccounts(derived) {
 }
 
 function renderAllocationForm(derived) {
+  const heroAssign = document.querySelector(".hero-assign");
+  if (heroAssign) {
+    heroAssign.hidden = derived.readyToAssign <= 0;
+  }
+
   const accountSelect = document.getElementById("allocationAccount");
   const subGoalSelect = document.getElementById("allocationSubgoal");
   const amountInput = document.getElementById("allocationAmount");
