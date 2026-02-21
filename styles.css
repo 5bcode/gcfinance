@@ -424,7 +424,20 @@ body.simple-mode .simple-mode-hidden {
   height: 100%;
   background: linear-gradient(90deg, var(--brand-light), var(--brand));
   border-radius: 4px;
-  transition: width 0.3s ease;
+  transition: width 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.simple-goal-progress-fill::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -60%;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  animation: progress-shimmer 2.5s ease-in-out infinite;
 }
 
 
@@ -685,6 +698,15 @@ h1 .gradient-text {
   animation: fade-in-up 0.8s var(--ease-spring) backwards;
 }
 
+.goal-board .goal-card {
+  animation: fade-in-up 0.4s var(--ease-spring) backwards;
+}
+
+.goal-board .goal-card:nth-child(1) { animation-delay: 0.05s; }
+.goal-board .goal-card:nth-child(2) { animation-delay: 0.10s; }
+.goal-board .goal-card:nth-child(3) { animation-delay: 0.15s; }
+.goal-board .goal-card:nth-child(n+4) { animation-delay: 0.20s; }
+
 .summary-card::before {
   content: "";
   position: absolute;
@@ -811,8 +833,21 @@ h1 .gradient-text {
   width: 0;
   border-radius: inherit;
   background: linear-gradient(90deg, var(--brand), var(--accent));
-  transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: width 0.9s cubic-bezier(0.16, 1, 0.3, 1);
   box-shadow: 0 0 15px var(--brand-glow);
+  position: relative;
+  overflow: hidden;
+}
+
+.meter-fill::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -60%;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  animation: progress-shimmer 3s ease-in-out infinite;
 }
 
 
@@ -965,6 +1000,11 @@ h1 .gradient-text {
   transform: translateY(-1px);
 }
 
+.btn-secondary:active {
+  transform: translateY(0) scale(0.98);
+  box-shadow: none;
+}
+
 .btn-ghost {
   background: transparent;
   border: 1px solid transparent;
@@ -977,6 +1017,11 @@ h1 .gradient-text {
   border-color: var(--glass-border);
 }
 
+.btn-ghost:active {
+  transform: scale(0.97);
+  background: var(--surface-hover);
+}
+
 .btn-danger {
   background: linear-gradient(135deg, var(--danger), #e11d48);
   color: #fff;
@@ -986,6 +1031,11 @@ h1 .gradient-text {
 .btn-danger:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 30px rgba(244, 63, 94, 0.3);
+}
+
+.btn-danger:active {
+  transform: translateY(0) scale(0.98);
+  box-shadow: 0 2px 10px rgba(244, 63, 94, 0.15);
 }
 
 .btn-danger-soft {
@@ -1038,6 +1088,12 @@ h1 .gradient-text {
   color: #fca5a5;
 }
 
+.row-remove:active,
+.btn-danger-row:active {
+  transform: scale(0.95);
+  background: rgba(244, 63, 94, 0.15);
+}
+
 .action-ghost {
   border: 1px solid var(--brand-border);
   border-radius: var(--radius-xs);
@@ -1054,6 +1110,11 @@ h1 .gradient-text {
 .action-ghost:hover {
   background: rgba(108, 99, 255, 0.2);
   color: #c4b5fd;
+}
+
+.action-ghost:active {
+  transform: scale(0.95);
+  background: rgba(108, 99, 255, 0.25);
 }
 
 /* ── Tables ──────────────────────────────────────────────────────────────── */
@@ -1199,7 +1260,14 @@ button:focus {
   outline: none;
   border-color: var(--brand-light);
   background: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 0 0 4px var(--brand-glow);
+  box-shadow: 0 0 0 3px var(--brand-glow), 0 0 12px rgba(124, 58, 237, 0.12);
+}
+
+input:focus-visible,
+select:focus-visible {
+  outline: none;
+  border-color: var(--brand-light);
+  box-shadow: 0 0 0 3px var(--brand-glow), 0 0 12px rgba(124, 58, 237, 0.15);
 }
 
 select option {
@@ -1296,9 +1364,33 @@ td:last-child {
 .empty-row td {
   color: var(--muted);
   text-align: center;
-  padding: 20px 12px;
-  font-size: 0.82rem;
-  font-style: italic;
+  padding: 36px 24px;
+  font-size: 0.85rem;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.empty-state-icon {
+  font-size: 2rem;
+  opacity: 0.4;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.empty-state-text {
+  font-weight: 500;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.empty-state-hint {
+  font-size: 0.75rem;
+  color: var(--muted-2);
 }
 
 /* ── Allocator form ─────────────────────────────────────────────────────── */
@@ -1358,14 +1450,27 @@ td:last-child {
   border-radius: var(--radius-md);
   background: radial-gradient(circle at top left, rgba(255, 255, 255, 0.03), transparent 60%);
   padding: 24px;
-  transition: all 0.3s ease;
+  transition: all 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   position: relative;
   overflow: hidden;
+}
+
+.goal-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+  pointer-events: none;
 }
 
 .goal-card:hover {
   background: rgba(255, 255, 255, 0.04);
   border-color: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
 }
 
 .goal-header {
@@ -1511,7 +1616,26 @@ td:last-child {
   height: 100%;
   border-radius: inherit;
   background: linear-gradient(90deg, var(--brand), var(--teal));
-  transition: width 300ms ease;
+  transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 0 8px rgba(124, 58, 237, 0.25);
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-fill::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -60%;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  animation: progress-shimmer 2.5s ease-in-out infinite;
+}
+
+@keyframes progress-shimmer {
+  0% { left: -60%; }
+  100% { left: 120%; }
 }
 
 /* ── Confirm dialog ───────────────────────────────────────────────────── */
@@ -1625,6 +1749,35 @@ td:last-child {
 .tab-panel {
   animation: fade-in 0.4s ease;
 }
+
+/* ── Table Row Staggered Fade-in ────────────────────────────────────────── */
+
+@keyframes row-appear {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+tbody tr {
+  animation: row-appear 0.25s ease backwards;
+}
+
+tbody tr:nth-child(1)  { animation-delay: 0.02s; }
+tbody tr:nth-child(2)  { animation-delay: 0.04s; }
+tbody tr:nth-child(3)  { animation-delay: 0.06s; }
+tbody tr:nth-child(4)  { animation-delay: 0.08s; }
+tbody tr:nth-child(5)  { animation-delay: 0.10s; }
+tbody tr:nth-child(6)  { animation-delay: 0.12s; }
+tbody tr:nth-child(7)  { animation-delay: 0.14s; }
+tbody tr:nth-child(8)  { animation-delay: 0.16s; }
+tbody tr:nth-child(9)  { animation-delay: 0.18s; }
+tbody tr:nth-child(10) { animation-delay: 0.20s; }
+tbody tr:nth-child(n+11) { animation-delay: 0.22s; }
 
 /* ── Scrollbar styling ──────────────────────────────────────────────────── */
 
@@ -1823,6 +1976,19 @@ td:last-child {
   border-radius: 0 999px 999px 0;
   transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   box-shadow: 0 0 12px var(--brand-glow);
+  position: relative;
+  overflow: hidden;
+}
+
+.wizard-progress-fill::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -60%;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  animation: progress-shimmer 2s ease-in-out infinite;
 }
 
 .wizard-step {
@@ -2015,30 +2181,39 @@ td.number {
   border-color: rgba(255, 255, 255, 0.2);
   color: var(--ink);
   background: var(--surface-hover);
+  transform: translateY(-1px);
+}
+
+.filter-pill:active {
+  transform: scale(0.96);
 }
 
 .filter-pill.active {
   background: var(--brand-soft);
   border-color: var(--brand);
   color: var(--brand-light);
+  box-shadow: 0 0 12px var(--brand-glow);
 }
 
 .filter-pill--gary.active {
   background: rgba(124, 58, 237, 0.15);
   border-color: var(--brand);
   color: var(--brand-light);
+  box-shadow: 0 0 12px rgba(124, 58, 237, 0.2);
 }
 
 .filter-pill--catherine.active {
   background: rgba(6, 182, 212, 0.15);
   border-color: var(--accent);
   color: var(--accent);
+  box-shadow: 0 0 12px rgba(6, 182, 212, 0.2);
 }
 
 .filter-pill--joint.active {
   background: rgba(16, 185, 129, 0.15);
   border-color: var(--success);
   color: var(--success);
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.2);
 }
 
 /* ── Account type group label variant ──────────────────────────────────── */

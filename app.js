@@ -441,7 +441,7 @@ function renderAccounts(derived) {
   }
 
   if (!derived.accountsDerived.length) {
-    tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No accounts yet. Add one to start allocating funds.</td></tr>';
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="5"><div class="empty-state"><div class="empty-state-icon">🏦</div><span class="empty-state-text">No accounts yet</span><span class="empty-state-hint">Add an account to start tracking your funds</span></div></td></tr>';
     return;
   }
 
@@ -449,7 +449,7 @@ function renderAccounts(derived) {
   const visible = derived.accountsDerived.filter((a) => acctOwnerFilter.has(a.owner));
 
   if (!visible.length) {
-    tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No accounts match the current filter.</td></tr>';
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="5"><div class="empty-state"><div class="empty-state-icon">🔍</div><span class="empty-state-text">No accounts match this filter</span><span class="empty-state-hint">Try selecting a different owner</span></div></td></tr>';
     return;
   }
 
@@ -676,7 +676,7 @@ function renderAllocations(derived) {
 
   if (!state.allocations.length) {
     tbody.innerHTML =
-      '<tr class="empty-row"><td colspan="4">No allocations yet. Assign money from an account to a sub-goal.</td></tr>';
+      '<tr class="empty-row"><td colspan="4"><div class="empty-state"><div class="empty-state-icon">📋</div><span class="empty-state-text">No allocations yet</span><span class="empty-state-hint">Use Quick Assign above to link funds to a goal</span></div></td></tr>';
     return;
   }
 
@@ -753,7 +753,7 @@ function renderGoals(derived) {
               `;
           })
           .join("")
-        : '<tr class="empty-row"><td colspan="6">No sub-goals yet. Add one to start tracking.</td></tr>';
+        : '<tr class="empty-row"><td colspan="6"><div class="empty-state"><div class="empty-state-icon">🎯</div><span class="empty-state-text">No sub-goals yet</span><span class="empty-state-hint">Add a sub-goal to start tracking progress</span></div></td></tr>';
 
       const headerName = isEditing
         ? `<input class="goal-name-input" data-field="goal-name" value="${escapeHtml(goal.name)}" aria-label="Goal name" style="margin:0; font-size:1.25rem; font-weight:700;" />`
