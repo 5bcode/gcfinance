@@ -1329,6 +1329,192 @@ function renderProgress() {
   renderProgressChart();
 }
 
+// ── Suggestions ────────────────────────────────────────────────────────────────
+
+function generateSuggestions(derived) {
+  const suggestions = [];
+  const currentMonthIdx = new Date().getMonth();
+  const currentEntry = state.monthlyProgress[currentMonthIdx];
+
+  // 1. Unallocated funds — readyToAssign > 0 and there are goals to fund
+  if (derived.readyToAssign > 0 && state.accounts.length > 0 && state.goals.length > 0 && derived.underFunded > 0) {
+    suggestions.push({
+      type: "action",
+      icon: "⚡",
+      title: "Unallocated Funds",
+      text: `You have ${GBP.format(derived.readyToAssign)} sitting idle. Assign it to your goals now.`,
+      cta: "Auto-assign",
+      ctaAction: "auto-assign",
+    });
+  }
+
+  // 2. Near-completion sub-goals (80–99% funded) — up to 3 shown
+  let nearCount = 0;
+  derived.subGoalsDerived.forEach((sg) => {
+    if (nearCount >= 3) return;
+    if (sg.target > 0 && sg.progress >= 80 && sg.progress < 100) {
+      suggestions.push({
+        type: "info",
+        icon: "🎯",
+        title: "Almost Funded",
+        text: `Just ${GBP.format(sg.remaining)} more to fully fund "${escapeHtml(sg.name)}".`,
+        cta: null,
+        ctaAction: null,
+      });
+      nearCount++;
+    }
+  });
+
+  // 3. Overfunded accounts — account has a large idle balance with nothing assigned from it
+  if (state.goals.length > 0 && derived.underFunded > 0) {
+    derived.accountsDerived.forEach((acct) => {
+      if (acct.assigned === 0 && acct.balance >= 1000) {
+        suggestions.push({
+          type: "warning",
+          icon: "💤",
+          title: "Idle Account",
+          text: `"${escapeHtml(acct.name)}" (${GBP.format(acct.balance)}) has no allocations — consider assigning some to your goals.`,
+          cta: null,
+          ctaAction: null,
+        });
+      }
+    });
+  }
+
+  // 4. Behind on monthly savings for the current month
+  if (currentEntry) {
+    if (currentEntry.plannedGary > 0 && currentEntry.actualGary < currentEntry.plannedGary) {
+      const gap = currentEntry.plannedGary - currentEntry.actualGary;
+      suggestions.push({
+        type: "warning",
+        icon: "📉",
+        title: "Gary Behind Plan",
+        text: `Gary is ${GBP.format(gap)} behind his savings target for ${MONTHS[currentMonthIdx]}.`,
+        cta: "View progress",
+        ctaAction: "go-progress",
+      });
+    }
+    if (currentEntry.plannedCat > 0 && currentEntry.actualCat < currentEntry.plannedCat) {
+      const gap = currentEntry.plannedCat - currentEntry.actualCat;
+      suggestions.push({
+        type: "warning",
+        icon: "📉",
+        title: "Catherine Behind Plan",
+        text: `Catherine is ${GBP.format(gap)} behind her savings target for ${MONTHS[currentMonthIdx]}.`,
+        cta: "View progress",
+        ctaAction: "go-progress",
+      });
+    }
+  }
+
+  // 5. No goals defined yet
+  if (state.goals.length === 0) {
+    suggestions.push({
+      type: "action",
+      icon: "🎯",
+      title: "Set Your First Goal",
+      text: "You haven't set any savings goals yet. Add one to start tracking what you're saving for.",
+      cta: "Add goal",
+      ctaAction: "add-goal",
+    });
+  }
+
+  // 6. No accounts defined yet
+  if (state.accounts.length === 0) {
+    suggestions.push({
+      type: "action",
+      icon: "🏦",
+      title: "Add Your Accounts",
+      text: "No accounts found. Add your bank accounts to see your total funds and start planning.",
+      cta: "Add account",
+      ctaAction: "add-account",
+    });
+  }
+
+  // 7. Goal fully funded — celebrate!
+  derived.goalsDerived.forEach((goal) => {
+    if (goal.progress === 100 && goal.target > 0) {
+      suggestions.push({
+        type: "success",
+        icon: "🎉",
+        title: `${escapeHtml(goal.name)} Complete!`,
+        text: `You've fully funded "${escapeHtml(goal.name)}". Incredible work — what's next?`,
+        cta: null,
+        ctaAction: null,
+      });
+    }
+  });
+
+  // 8. Savings pace projection — based on the last 3 months of actuals
+  if (currentMonthIdx >= 2) {
+    const lookback = Math.min(3, currentMonthIdx);
+    const recentMonths = state.monthlyProgress.slice(currentMonthIdx - lookback, currentMonthIdx);
+    const hasActualData = recentMonths.some((m) => (m.actualGary + m.actualCat) > 0);
+    const hasPlannedData = state.monthlyProgress.some((m) => (m.plannedGary + m.plannedCat) > 0);
+    if (hasActualData && hasPlannedData) {
+      const avgMonthly = recentMonths.reduce((sum, m) => sum + m.actualGary + m.actualCat, 0) / lookback;
+      const monthsRemaining = 12 - currentMonthIdx;
+      const savedSoFar = state.monthlyProgress.slice(0, currentMonthIdx).reduce((sum, m) => sum + m.actualGary + m.actualCat, 0);
+      const projected = Math.round(savedSoFar + avgMonthly * monthsRemaining);
+      const totalPlanned = state.monthlyProgress.reduce((sum, m) => sum + m.plannedGary + m.plannedCat, 0);
+      if (totalPlanned > 0) {
+        const projectedPct = Math.round((projected / totalPlanned) * 100);
+        if (projectedPct >= 100) {
+          suggestions.push({
+            type: "success",
+            icon: "🚀",
+            title: "On Track for the Year",
+            text: `At your current pace you'll save ${GBP.format(projected)} this year — that's ${projectedPct}% of your annual target!`,
+            cta: null,
+            ctaAction: null,
+          });
+        } else if (projectedPct < 80) {
+          const shortfall = totalPlanned - projected;
+          suggestions.push({
+            type: "warning",
+            icon: "⚠️",
+            title: "Savings Pace Warning",
+            text: `At your current pace you'll reach ${projectedPct}% of your annual target. You may fall ${GBP.format(shortfall)} short.`,
+            cta: "View progress",
+            ctaAction: "go-progress",
+          });
+        }
+      }
+    }
+  }
+
+  return suggestions;
+}
+
+function renderSuggestions(derived) {
+  const panel = document.getElementById("suggestionsPanel");
+  const strip = document.getElementById("suggestionsStrip");
+  if (!panel || !strip) return;
+
+  const suggestions = generateSuggestions(derived);
+
+  if (suggestions.length === 0) {
+    panel.hidden = true;
+    return;
+  }
+
+  panel.hidden = false;
+  strip.innerHTML = suggestions.map((s) => {
+    const ctaHtml = s.cta
+      ? `<button class="suggestion-cta" data-suggestion-action="${escapeHtml(s.ctaAction)}" type="button">${escapeHtml(s.cta)}</button>`
+      : "";
+    return `
+      <article class="suggestion-card suggestion-card--${escapeHtml(s.type)}" role="listitem">
+        <div class="suggestion-card-top">
+          <span class="suggestion-icon" aria-hidden="true">${s.icon}</span>
+          <p class="suggestion-title">${s.title}</p>
+        </div>
+        <p class="suggestion-text">${s.text}</p>
+        ${ctaHtml}
+      </article>`;
+  }).join("");
+}
+
 function renderApp() {
   sanitizeState();
   const derived = deriveState();
@@ -1341,6 +1527,7 @@ function renderApp() {
   renderAllocationForm(derived);
   renderAllocations(derived);
   renderProgress();
+  renderSuggestions(derived);
   saveState();
 }
 
@@ -1498,6 +1685,23 @@ function wireEvents() {
     const isOther = e.target.value === "__other__";
     customInput.style.display = isOther ? "block" : "none";
     if (isOther) setTimeout(() => customInput.focus(), 30);
+  });
+
+  // ── Suggestions CTA buttons ──────────────────────────────────────────────
+  document.getElementById("suggestionsStrip")?.addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-suggestion-action]");
+    if (!btn) return;
+    const action = btn.getAttribute("data-suggestion-action");
+    if (action === "auto-assign") {
+      autoAssignBtn?.click();
+    } else if (action === "go-progress") {
+      const progressTabBtn = document.querySelector(".tab-btn[data-tab='progress']");
+      progressTabBtn?.click();
+    } else if (action === "add-goal") {
+      addGoalBtn?.click();
+    } else if (action === "add-account") {
+      addAccountBtn?.click();
+    }
   });
 
   // ── Accounts table — inline editing ──────────────────────────────────────
